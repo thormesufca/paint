@@ -1,0 +1,18 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build and Run OpenGL",
+            "type": "shell",
+            "command": "cmd",
+            "args": [
+                "/c",
+                "g++ src/main.cpp src/formas.cpp -o main.exe -lopengl32 -lglu32 -lfreeglut && main.exe"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
