@@ -72,9 +72,7 @@ void mouse(int button, int state, int x, int y){
                 desenhandoPoligono = true;
                 formas.push_back(poligonoAtual);
             } else {
-            formas.pop_back(); // Remove o polígono anterior para atualizar com o novo vértice
             poligonoAtual->adicionarVertice(x, HEIGHT - y);
-            formas.push_back(poligonoAtual); // Adiciona o polígono atualizado
             }
         }    
     }
