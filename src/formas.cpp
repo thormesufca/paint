@@ -6,6 +6,8 @@
 #include <GL/freeglut.h>
 #endif
 
+#define COR_SELECAO 0.0, 1.0, 0.0
+
 // ====================
 // Forma
 // ====================
@@ -43,7 +45,9 @@ void Ponto::setPonto(float x, float y) {
 }
 
 void Ponto::draw() const {
-    glColor3fv(cor);
+    if (selecionada) glColor3f(COR_SELECAO);
+    else glColor3fv(cor);
+    
     glPointSize(lineWidth);
 
     glBegin(GL_POINTS);
@@ -71,7 +75,9 @@ void Linha::setPontos(float x1, float y1, float x2, float y2) {
 }
 
 void Linha::draw() const {
-    glColor3fv(cor);
+    if (selecionada) glColor3f(COR_SELECAO);
+    else glColor3fv(cor);
+    
     glLineWidth(lineWidth);
 
     glBegin(GL_LINES);
@@ -90,7 +96,10 @@ void Poligono::adicionarVertice(float x, float y) {
 
 void Poligono::draw() const {
     if (vertices.size() < 3) return; // Um polígono precisa de pelo menos 3 vértices
-    glColor3fv(cor);
+
+    if (selecionada) glColor3f(COR_SELECAO);
+    else glColor3fv(cor);
+
     glLineWidth(lineWidth);
 
     glBegin(GL_POLYGON);

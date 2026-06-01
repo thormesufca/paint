@@ -12,11 +12,12 @@ class Forma {
 protected:
     float cor[3];
     float lineWidth;
-
+    
 public:
     Forma();
     virtual ~Forma() = default;
 
+    bool selecionada = false;
     void setCor(float r, float g, float b);
     void setLineWidth(float width);
 
@@ -31,6 +32,7 @@ public:
     Ponto(float x, float y);
 
     void setPonto(float x, float y);
+    Ponto2D getPonto() const { return ponto; }
 
     void draw() const override;
 };
@@ -44,6 +46,7 @@ public:
     Linha(float x1, float y1, float x2, float y2);
 
     void setPontos(float x, float y, float x2, float y2);
+    std::pair<Ponto2D, Ponto2D> getPontos() const { return {p1, p2}; }
 
     void draw() const override;
 };
@@ -54,6 +57,9 @@ private:
 
 public:
     void adicionarVertice(float x, float y);
+
+    int getNumVertices() const { return vertices.size(); }
+    std::vector<Ponto2D> getPontos() const { return vertices; }
 
     void draw() const override;
 };
