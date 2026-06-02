@@ -1,7 +1,8 @@
 #include <GL/glut.h>
 #include <stdio.h>
-#include <math.h>
 #include "formas.h"
+#include "matriz.h"
+#include "funcoes.h"
 #include <vector>
 
 #define HEIGHT 300
@@ -28,6 +29,12 @@ void keyboard(unsigned char key, int x, int y){
         case '3':
             choice = 3;
             break;
+        case 'R':
+        case 'r':
+            for(auto& forma : formas){
+                forma->rotacionar(-45.0f);
+            }
+            break;
         case 'z':
             if (!formas.empty()) {
                 delete formas.back();
@@ -49,7 +56,7 @@ void addLinha(float x, float y, bool ativo) {
     static Ponto2D primeiroPonto = {-1.0f, -1.0f};
 
     if (!ativo) {
-        primeiroPonto = {-1.0f, -1.0f}; // Reset para o próximo par de pontos
+        primeiroPonto = {-1.0f, -1.0f};
         return;
     }
 
@@ -60,7 +67,7 @@ void addLinha(float x, float y, bool ativo) {
         l->setCor(0.0, 1.0, 0.0);
         l->setLineWidth(2.0);
         formas.push_back(l);
-        primeiroPonto = {-1.0f, -1.0f}; // Reset para o próximo par de pontos
+        primeiroPonto = {-1.0f, -1.0f};
     }
 }
 
@@ -72,7 +79,6 @@ void addPoligono(float x, float y, bool ativo) {
         primeiroPonto = true;
 
         if (poligonoAtual && poligonoAtual->getNumVertices() < 3) {
-            // Polígono inválido, remove da lista
             formas.pop_back();
             delete poligonoAtual;
         }
@@ -97,7 +103,7 @@ void mouse(int button, int state, int x, int y){
     if(button == GLUT_LEFT_BUTTON && state == GLUT_DOWN){
         switch(choice) {
         case 1:
-            addLinha(0, 0, false);      // Reseta demais funções para evitar conflitos
+            addLinha(0, 0, false);
             addPoligono(0, 0, false);
 
             addPonto(x, HEIGHT - y);
@@ -129,17 +135,23 @@ void display(){
     }
 
     for (const auto& forma : formas) {
-        if (forma->selecionada) { // Separando formas selecionadas para transformações futuras
+        if (forma->selecionada) {
             forma->draw();
         }
     }
+    escrever(10, 30, "Pressione 1 para desenhar pontos, 2 para desenhar linhas e 3 para desenhar poligonos.");
+    escrever(10, 15, "Clique com o mouse para desenhar. Clique com o botao direito para finalizar um poligono.");
+
+    const char* ferramentas[] = {"", "Ponto", "Linha", "Poligono"};
+    escrever(WIDTH - 40, 10, ferramentas[choice]);
+
     glutSwapBuffers();
 }
 
 int main(int argc, char** argv){
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-    glutInitWindowSize(400, 300);
+    glutInitWindowSize(800, 600);
     glutInitWindowPosition(100, 100);
     glutCreateWindow("OpenGL Example");
 

@@ -12,7 +12,7 @@ class Forma {
 protected:
     float cor[3];
     float lineWidth;
-    
+
 public:
     Forma();
     virtual ~Forma() = default;
@@ -20,8 +20,11 @@ public:
     bool selecionada = false;
     void setCor(float r, float g, float b);
     void setLineWidth(float width);
+    void rotacionar(float angulo);
 
     virtual void draw() const = 0;
+    virtual std::vector<Ponto2D> getPontos() const = 0;
+    virtual void setPontos(std::vector<Ponto2D>) = 0;
 };
 
 class Ponto : public Forma {
@@ -35,6 +38,8 @@ public:
     Ponto2D getPonto() const { return ponto; }
 
     void draw() const override;
+    std::vector<Ponto2D> getPontos() const override { return {ponto}; }
+    void setPontos(std::vector<Ponto2D>) override;
 };
 
 class Linha : public Forma {
@@ -45,10 +50,11 @@ private:
 public:
     Linha(float x1, float y1, float x2, float y2);
 
-    void setPontos(float x, float y, float x2, float y2);
-    std::pair<Ponto2D, Ponto2D> getPontos() const { return {p1, p2}; }
+    void setPontos(float x1, float y1, float x2, float y2);
+    void setPontos(std::vector<Ponto2D>) override;
 
     void draw() const override;
+    std::vector<Ponto2D> getPontos() const override { return {p1, p2}; }
 };
 
 class Poligono : public Forma {
@@ -59,9 +65,12 @@ public:
     void adicionarVertice(float x, float y);
 
     int getNumVertices() const { return vertices.size(); }
-    std::vector<Ponto2D> getPontos() const { return vertices; }
+    Ponto2D getCentroide() const;
 
     void draw() const override;
+    std::vector<Ponto2D> getPontos() const override { return vertices; }
+    void setVertices(std::vector<Ponto2D>);
+    void setPontos(std::vector<Ponto2D> pts) override { setVertices(pts); }
 };
 
 #endif

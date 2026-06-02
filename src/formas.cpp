@@ -1,4 +1,5 @@
-#include "Formas.h"
+#include "formas.h"
+#include "matriz.h"
 
 #ifdef __APPLE__
 #include <GLUT/glut.h>
@@ -6,7 +7,10 @@
 #include <GL/freeglut.h>
 #endif
 
+#include <math.h>
+
 #define COR_SELECAO 0.0, 1.0, 0.0
+#define PI 3.14159265359
 
 // ====================
 // Forma
@@ -42,6 +46,48 @@ Ponto::Ponto(float x, float y) {
 void Ponto::setPonto(float x, float y) {
     ponto.x = x;
     ponto.y = y;
+}
+
+void Ponto::setPontos(std::vector<Ponto2D> pts) {
+    ponto = pts[0];
+}
+
+void Forma::rotacionar(float angulo) {
+    auto pontos = getPontos();
+    if (pontos.size() <= 1) return;
+
+    Ponto2D c;
+    c.x = 0; c.y = 0;
+    for (const auto& pt : pontos) { c.x += pt.x; c.y += pt.y; }
+    c.x /= pontos.size();
+    c.y /= pontos.size();
+
+    float rad = angulo * PI / 180.0f;
+    float cosA = cos(rad), sinA = sin(rad);
+
+    Mat3 T_ida   = {{ 1,    0,  -c.x },
+                    { 0,    1,  -c.y },
+                    { 0,    0,   1   }};
+
+    Mat3 R       = {{ cosA, -sinA, 0 },
+                    { sinA,  cosA, 0 },
+                    { 0,     0,    1 }};
+
+    Mat3 T_volta = {{ 1,    0,   c.x },
+                    { 0,    1,   c.y },
+                    { 0,    0,   1   }};
+
+    Mat3 temp, M;
+    multiplicaMatriz(temp, R, T_ida);
+    multiplicaMatriz(M, T_volta, temp);
+
+    for (auto& pt : pontos) {
+        float x = M[0][0]*pt.x + M[0][1]*pt.y + M[0][2];
+        float y = M[1][0]*pt.x + M[1][1]*pt.y + M[1][2];
+        pt.x = x;
+        pt.y = y;
+    }
+    setPontos(pontos);
 }
 
 void Ponto::draw() const {
@@ -86,6 +132,11 @@ void Linha::draw() const {
     glEnd();
 }
 
+void Linha::setPontos(std::vector<Ponto2D> pts) {
+    p1 = pts[0];
+    p2 = pts[1];
+}
+
 // ====================
 // Poligono
 // ====================
@@ -108,3 +159,23 @@ void Poligono::draw() const {
         }
     glEnd();
 }
+
+void Poligono::setVertices(std::vector<Ponto2D> pontos){
+    vertices.clear();
+    for(auto &pt: pontos){
+        vertices.push_back({pt.x, pt.y});
+    }
+}
+
+Ponto2D Poligono::getCentroide() const {
+    Ponto2D c;
+    c.x = 0; c.y = 0;
+    for (const auto& pt : vertices) {
+        c.x += pt.x;
+        c.y += pt.y;
+    }
+    c.x /= vertices.size();
+    c.y /= vertices.size();
+    return c;
+}
+
