@@ -9,7 +9,7 @@
 
 #include <math.h>
 
-#define COR_SELECAO 0.0, 1.0, 0.0
+#define COR_SELECAO 0.5, 0.5, 0.5
 #define PI 3.14159265359
 
 // ====================
@@ -34,6 +34,110 @@ void Forma::setLineWidth(float width) {
     lineWidth = width;
 }
 
+void Forma::aplicarTransformacaoComposta(Mat3 matrizTransformacao)
+{
+    auto pontos = getPontos();
+    if (pontos.size() <= 1)
+        return;
+
+    Ponto2D c;
+    c.x = 0;
+    c.y = 0;
+    for (const auto &pt : pontos)
+    {
+        c.x += pt.x;
+        c.y += pt.y;
+    }
+    c.x /= pontos.size();
+    c.y /= pontos.size();
+
+    Mat3 T_ida = {{1, 0, -c.x},
+                  {0, 1, -c.y},
+                  {0, 0, 1}};
+
+    Mat3 T_volta = {{1, 0, c.x},
+                    {0, 1, c.y},
+                    {0, 0, 1}};
+
+    Mat3 temp, M;
+    multiplicaMatriz(temp, matrizTransformacao, T_ida);
+    multiplicaMatriz(M, T_volta, temp);
+
+    for (auto &pt : pontos)
+    {
+        float x = M[0][0] * pt.x + M[0][1] * pt.y + M[0][2];
+        float y = M[1][0] * pt.x + M[1][1] * pt.y + M[1][2];
+        pt.x = x;
+        pt.y = y;
+    }
+    setPontos(pontos);
+}
+
+void Forma::rotacionar(float angulo)
+{
+
+    float rad = angulo * PI / 180.0f;
+    float cosA = cos(rad), sinA = sin(rad);
+
+    Mat3 R = {{cosA, -sinA, 0},
+              {sinA, cosA, 0},
+              {0, 0, 1}};
+    aplicarTransformacaoComposta(R);
+}
+
+void Forma::transladar(float dx, float dy)
+{
+    auto pontos = getPontos();
+    for (auto &pt : pontos)
+    {
+        pt.x += dx;
+        pt.y += dy;
+    }
+    setPontos(pontos);
+}
+
+void Forma::escalar(float sx, float sy)
+{
+    Mat3 S = {{sx, 0, 0},
+              {0, sy, 0},
+              {0, 0, 1}};
+
+    aplicarTransformacaoComposta(S);
+}
+
+
+void Forma::refletirHorizontal()
+{
+    Mat3 R = {{-1, 0, 0},
+              {0, 1, 0},
+              {0, 0, 1}};
+    aplicarTransformacaoComposta(R);
+}
+
+void Forma::refletirVertical()
+{
+    Mat3 R = {{1, 0, 0},
+              {0, -1, 0},
+              {0, 0, 1}};
+    aplicarTransformacaoComposta(R);
+}
+
+void Forma::cisalharHorizontal(float shx)
+{
+    Mat3 C = {{1, shx, 0},
+              {0, 1, 0},
+              {0, 0, 1}};
+    aplicarTransformacaoComposta(C);
+}
+
+void Forma::cisalharVertical(float shy)
+{
+    Mat3 C = {{1, 0, 0},
+              {shy, 1, 0},
+              {0, 0, 1}};
+    aplicarTransformacaoComposta(C);
+}
+
 // ====================
 // Ponto
 // ====================
@@ -52,44 +156,6 @@ void Ponto::setPontos(std::vector<Ponto2D> pts) {
     ponto = pts[0];
 }
 
-void Forma::rotacionar(float angulo) {
-    auto pontos = getPontos();
-    if (pontos.size() <= 1) return;
-
-    Ponto2D c;
-    c.x = 0; c.y = 0;
-    for (const auto& pt : pontos) { c.x += pt.x; c.y += pt.y; }
-    c.x /= pontos.size();
-    c.y /= pontos.size();
-
-    float rad = angulo * PI / 180.0f;
-    float cosA = cos(rad), sinA = sin(rad);
-
-    Mat3 T_ida   = {{ 1,    0,  -c.x },
-                    { 0,    1,  -c.y },
-                    { 0,    0,   1   }};
-
-    Mat3 R       = {{ cosA, -sinA, 0 },
-                    { sinA,  cosA, 0 },
-                    { 0,     0,    1 }};
-
-    Mat3 T_volta = {{ 1,    0,   c.x },
-                    { 0,    1,   c.y },
-                    { 0,    0,   1   }};
-
-    Mat3 temp, M;
-    multiplicaMatriz(temp, R, T_ida);
-    multiplicaMatriz(M, T_volta, temp);
-
-    for (auto& pt : pontos) {
-        float x = M[0][0]*pt.x + M[0][1]*pt.y + M[0][2];
-        float y = M[1][0]*pt.x + M[1][1]*pt.y + M[1][2];
-        pt.x = x;
-        pt.y = y;
-    }
-    setPontos(pontos);
-}
-
 void Ponto::draw() const {
     if (selecionada) glColor3f(COR_SELECAO);
     else glColor3fv(cor);
@@ -101,6 +167,28 @@ void Ponto::draw() const {
     glEnd();
 }
 
+void Ponto::rotacionar(float angulo){
+    float rad = angulo * PI / 180.0f;
+    float cosA = cos(rad), sinA = sin(rad);
+    Ponto2D p = getPonto();
+
+    Mat3 R = {{cosA, -sinA, 0},
+              {sinA, cosA, 0},
+              {0, 0, 1}};
+    float x = R[0][0] * p.x + R[0][1] * p.y + R[0][2];
+    float y = R[1][0] * p.x + R[1][1] * p.y + R[1][2];
+    setPonto(x, y);
+}
+
+bool Ponto::selecionar(float x, float y) {
+    int tolerancia = 5;
+    if(x <= ponto.x + tolerancia && x >= ponto.x - tolerancia &&
+       y <= ponto.y + tolerancia && y >= ponto.y - tolerancia){
+        selecionada = true;
+        return true;
+    }
+    return false;
+}
 // ====================
 // Linha
 // ====================
@@ -137,6 +225,10 @@ void Linha::setPontos(std::vector<Ponto2D> pts) {
     p2 = pts[1];
 }
 
+bool Linha::selecionar(float x, float y){
+    return false;
+}
+
 // ====================
 // Poligono
 // ====================
@@ -165,6 +257,11 @@ void Poligono::setVertices(std::vector<Ponto2D> pontos){
     for(auto &pt: pontos){
         vertices.push_back({pt.x, pt.y});
     }
+}
+
+bool Poligono::selecionar(float x, float y)
+{
+    return false;
 }
 
 Ponto2D Poligono::getCentroide() const {

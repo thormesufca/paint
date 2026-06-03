@@ -5,7 +5,7 @@
 #endif
 
 void escrever(int x, int y, const char *string){
-    glColor3f(1, 1, 1);
+    glColor3f(0, 0, 0);
     glRasterPos2f(x, y);
     int len, i;
     len = (int)strlen(string);

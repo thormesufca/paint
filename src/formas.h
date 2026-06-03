@@ -1,14 +1,17 @@
 #ifndef FORMAS_H
 #define FORMAS_H
 
+#include "matriz.h"
 #include <vector>
 
-struct Ponto2D {
-    float x=-1.0f;
-    float y=-1.0f;
+struct Ponto2D
+{
+    float x = -1.0f;
+    float y = -1.0f;
 };
 
-class Forma {
+class Forma
+{
 protected:
     float cor[3];
     float lineWidth;
@@ -20,14 +23,22 @@ public:
     bool selecionada = false;
     void setCor(float r, float g, float b);
     void setLineWidth(float width);
-    void rotacionar(float angulo);
-
+    virtual void rotacionar(float angulo);
+    void transladar(float dx, float dy);
+    void escalar(float sx, float sy);
+    void aplicarTransformacaoComposta(Mat3 transformacao);
+    void refletirHorizontal();
+    void refletirVertical();
+    void cisalharHorizontal(float shx);
+    void cisalharVertical(float shy);
+    virtual bool selecionar(float x, float y) = 0;
     virtual void draw() const = 0;
     virtual std::vector<Ponto2D> getPontos() const = 0;
     virtual void setPontos(std::vector<Ponto2D>) = 0;
 };
 
-class Ponto : public Forma {
+class Ponto : public Forma
+{
 private:
     Ponto2D ponto;
 
@@ -40,9 +51,12 @@ public:
     void draw() const override;
     std::vector<Ponto2D> getPontos() const override { return {ponto}; }
     void setPontos(std::vector<Ponto2D>) override;
+    void rotacionar(float angulo) override;
+    bool selecionar(float x, float y) override;
 };
 
-class Linha : public Forma {
+class Linha : public Forma
+{
 private:
     Ponto2D p1;
     Ponto2D p2;
@@ -55,9 +69,11 @@ public:
 
     void draw() const override;
     std::vector<Ponto2D> getPontos() const override { return {p1, p2}; }
+    bool selecionar(float x, float y) override;
 };
 
-class Poligono : public Forma {
+class Poligono : public Forma
+{
 private:
     std::vector<Ponto2D> vertices;
 
@@ -71,6 +87,7 @@ public:
     std::vector<Ponto2D> getPontos() const override { return vertices; }
     void setVertices(std::vector<Ponto2D>);
     void setPontos(std::vector<Ponto2D> pts) override { setVertices(pts); }
+    bool selecionar(float x, float y) override;
 };
 
 #endif
