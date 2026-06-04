@@ -3,11 +3,12 @@
 #include "formas.h"
 #include "matriz.h"
 #include "funcoes.h"
+#include "arquivo.h"
 #include <vector>
 #include <algorithm>
 
-#define HEIGHT 600
-#define WIDTH 800
+#define HEIGHT 900
+#define WIDTH 1200
 #define SPEED 2.0
 #define TOOLBAR_WIDTH 80
 #define MARGEM_LATERAL 5
@@ -19,8 +20,15 @@
 #define TEXTO_PAD_H 7
 #define TEXTO_PAD_V 12
 
+int winWidth = WIDTH;
+int winHeight = HEIGHT;
+
 int choice = 1;
 std::vector<Forma *> formas;
+
+std::string mensagemStatus = "";
+bool exibirStatus = false;
+bool statusSucesso = false;
 
 Ponto2D mouseAtual = {-1.0f, -1.0f};
 Ponto2D linhaPrimeiroP = {-1.0f, -1.0f};
@@ -48,9 +56,18 @@ const float CORES[7][3] = {
 int init()
 {
     glClearColor(0.0, 0.0, 0.0, 1.0);
-    glMatrixMode(GL_PROJECTION);
-    gluOrtho2D(0.0, WIDTH, 0.0, HEIGHT);
     return 0;
+}
+
+void reshape(int w, int h)
+{
+    winWidth = w;
+    winHeight = h;
+    glViewport(0, 0, w, h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0.0, w, 0.0, h);
+    glMatrixMode(GL_MODELVIEW);
 }
 
 bool temPreview()
@@ -293,7 +310,7 @@ void addPoligono(float x, float y, bool ativo)
 
 void motionPassiva(int x, int y)
 {
-    mouseAtual = {(float)x, (float)(HEIGHT - y)};
+    mouseAtual = {(float)x, (float)(winHeight - y)};
     if (temPreview())
         glutPostRedisplay();
 }
@@ -301,7 +318,7 @@ void motionPassiva(int x, int y)
 void motion(int x, int y)
 {
     float fx = (float)x;
-    float fy = (float)(HEIGHT - y);
+    float fy = (float)(winHeight - y);
     mouseAtual = {fx, fy};
 
     if (arrastando)
@@ -320,7 +337,7 @@ void motion(int x, int y)
 void mouse(int button, int state, int x, int y)
 {
     float fx = (float)x;
-    float fy = (float)(HEIGHT - y);
+    float fy = (float)(winHeight - y);
 
     if (fx < TOOLBAR_WIDTH)
     { // Verifica se o clique foi na barra de ferramentas
@@ -329,7 +346,7 @@ void mouse(int button, int state, int x, int y)
             // Botões de ferramenta
             for (int i = 0; i < 4; i++)
             {
-                float yTop = HEIGHT - MARGEM_TOPO - i * SLOT_BOTAO;
+                float yTop = winHeight - MARGEM_TOPO - i * SLOT_BOTAO;
                 float yBot = yTop - ALTURA_ELEMENTO;
                 if (fy >= yBot && fy <= yTop)
                 {
@@ -338,6 +355,57 @@ void mouse(int button, int state, int x, int y)
                     choice = i + 1;
                     if (choice != 4)
                         desselecionar();
+                    glutPostRedisplay();
+                    return;
+                }
+            }
+            // Botão Salvar
+            {
+                float yTop = winHeight - MARGEM_TOPO - 4 * SLOT_BOTAO;
+                float yBot = yTop - ALTURA_ELEMENTO;
+                if (fy >= yBot && fy <= yTop)
+                {
+                    try
+                    {
+                        salvarArquivo(formas, "formas.json");
+                        mensagemStatus = "Salvo em formas.json";
+                        statusSucesso = true;
+                    }
+                    catch (const std::exception &e)
+                    {
+                        mensagemStatus = e.what();
+                        statusSucesso = false;
+                    }
+                    exibirStatus = true;
+                    glutTimerFunc(3000, [](int)
+                                  { exibirStatus = false; glutPostRedisplay(); }, 0);
+                    glutPostRedisplay();
+                    return;
+                }
+            }
+            // Botão Carregar
+            {
+                float yTop = winHeight - MARGEM_TOPO - 5 * SLOT_BOTAO;
+                float yBot = yTop - ALTURA_ELEMENTO;
+                if (fy >= yBot && fy <= yTop)
+                {
+                    try
+                    {
+                        std::vector<Forma*> carregadas = carregarArquivo("formas.json");
+                        for (auto f : formas) delete f;
+                        formas = carregadas;
+                        formaSelecionada = nullptr;
+                        mensagemStatus = "Carregado de formas.json";
+                        statusSucesso = true;
+                    }
+                    catch (const std::exception &e)
+                    {
+                        mensagemStatus = e.what();
+                        statusSucesso = false;
+                    }
+                    exibirStatus = true;
+                    glutTimerFunc(3000, [](int)
+                                  { exibirStatus = false; glutPostRedisplay(); }, 0);
                     glutPostRedisplay();
                     return;
                 }
@@ -433,8 +501,8 @@ void desenharToolbar()
     glBegin(GL_QUADS);
     glVertex2f(0, 0);
     glVertex2f(TOOLBAR_WIDTH, 0);
-    glVertex2f(TOOLBAR_WIDTH, HEIGHT);
-    glVertex2f(0, HEIGHT);
+    glVertex2f(TOOLBAR_WIDTH, winHeight);
+    glVertex2f(0, winHeight);
     glEnd();
 
     // Separador
@@ -442,14 +510,14 @@ void desenharToolbar()
     glLineWidth(2.0);
     glBegin(GL_LINES);
     glVertex2f(TOOLBAR_WIDTH, 0);
-    glVertex2f(TOOLBAR_WIDTH, HEIGHT);
+    glVertex2f(TOOLBAR_WIDTH, winHeight);
     glEnd();
 
     // Botões de ferramenta
     const char *nomes[] = {"Ponto", "Linha", "Poligono", "Selecionar"};
     for (int i = 0; i < 4; i++)
     {
-        float yTop = HEIGHT - MARGEM_TOPO - i * SLOT_BOTAO;
+        float yTop = winHeight - MARGEM_TOPO - i * SLOT_BOTAO;
         float yBot = yTop - ALTURA_ELEMENTO;
         if (choice == i + 1)
             glColor3f(0.3, 0.3, 0.75);
@@ -462,6 +530,34 @@ void desenharToolbar()
         glVertex2f(MARGEM_LATERAL, yTop);
         glEnd();
         escrever(MARGEM_LATERAL + TEXTO_PAD_H, (int)(yBot + TEXTO_PAD_V), nomes[i]);
+    }
+
+    // Botão Salvar
+    {
+        float yTop = winHeight - MARGEM_TOPO - 4 * SLOT_BOTAO;
+        float yBot = yTop - ALTURA_ELEMENTO;
+        glColor3f(0.2, 0.45, 0.2);
+        glBegin(GL_QUADS);
+        glVertex2f(MARGEM_LATERAL, yBot);
+        glVertex2f(TOOLBAR_WIDTH - MARGEM_LATERAL, yBot);
+        glVertex2f(TOOLBAR_WIDTH - MARGEM_LATERAL, yTop);
+        glVertex2f(MARGEM_LATERAL, yTop);
+        glEnd();
+        escrever(MARGEM_LATERAL + TEXTO_PAD_H, (int)(yBot + TEXTO_PAD_V), "Salvar");
+    }
+
+    // Botão Carregar
+    {
+        float yTop = winHeight - MARGEM_TOPO - 5 * SLOT_BOTAO;
+        float yBot = yTop - ALTURA_ELEMENTO;
+        glColor3f(0.2, 0.35, 0.5);
+        glBegin(GL_QUADS);
+        glVertex2f(MARGEM_LATERAL, yBot);
+        glVertex2f(TOOLBAR_WIDTH - MARGEM_LATERAL, yBot);
+        glVertex2f(TOOLBAR_WIDTH - MARGEM_LATERAL, yTop);
+        glVertex2f(MARGEM_LATERAL, yTop);
+        glEnd();
+        escrever(MARGEM_LATERAL + TEXTO_PAD_H, (int)(yBot + TEXTO_PAD_V), "Carregar");
     }
 
     // CORESes de cor
@@ -538,6 +634,23 @@ void display()
         glDisable(GL_LINE_STIPPLE);
     }
 
+    if (exibirStatus)
+    {
+        float centerx = (TOOLBAR_WIDTH + winWidth) / 2.0;
+        float by = 10.0, bh = 25.0, bw = 300.0;
+        if (statusSucesso)
+            glColor3f(0.1f, 0.45f, 0.1f);
+        else
+            glColor3f(0.5f, 0.1f, 0.1f);
+        glBegin(GL_QUADS);
+        glVertex2f(centerx - bw / 2, by);
+        glVertex2f(centerx + bw / 2, by);
+        glVertex2f(centerx + bw / 2, by + bh);
+        glVertex2f(centerx - bw / 2, by + bh);
+        glEnd();
+        escrever((int)(centerx - bw / 2 + 8), (int)(by + 8), mensagemStatus.c_str());
+    }
+
     glutSwapBuffers();
 }
 
@@ -547,10 +660,11 @@ int main(int argc, char **argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(WIDTH, HEIGHT);
     glutInitWindowPosition(100, 100);
-    glutCreateWindow("Paint - Computacao Grafica");
+    glutCreateWindow("UFCA - Computacao Grafica - Paint");
 
     init();
     glutDisplayFunc(display);
+    glutReshapeFunc(reshape);
     glutKeyboardFunc(keyboard);
     glutSpecialFunc(teclasEspeciais);
     glutMouseFunc(mouse);

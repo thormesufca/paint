@@ -2,6 +2,7 @@
 #define FORMAS_H
 
 #include "matriz.h"
+#include <string>
 #include <vector>
 
 struct Ponto2D
@@ -19,10 +20,13 @@ protected:
 public:
     Forma();
     virtual ~Forma() = default;
-
+    virtual std::string getTipo() = 0;
+    virtual std::string serializar() = 0;
     bool selecionada = false;
     void setCor(float r, float g, float b);
     void setLineWidth(float width);
+    const float* getCor() const { return cor; };
+    float getLineWidth() const { return lineWidth; }
     virtual void rotacionar(float angulo);
     void transladar(float dx, float dy);
     void escalar(float sx, float sy);
@@ -53,6 +57,9 @@ public:
     void setPontos(std::vector<Ponto2D>) override;
     void rotacionar(float angulo) override;
     bool selecionar(float x, float y) override;
+    std::string getTipo() override { return "ponto"; };
+    std::string serializar() override;
+    static Ponto* desserializar(const std::string& json);
 };
 
 class Linha : public Forma
@@ -71,6 +78,9 @@ public:
     void draw() const override;
     std::vector<Ponto2D> getPontos() const override { return {p1, p2}; }
     bool selecionar(float x, float y) override;
+    std::string getTipo() override { return "linha"; };
+    std::string serializar() override;
+    static Linha* desserializar(const std::string& json);
 };
 
 class Poligono : public Forma
@@ -92,6 +102,9 @@ public:
     void setVertices(std::vector<Ponto2D>);
     void setPontos(std::vector<Ponto2D> pts) override { setVertices(pts); }
     bool selecionar(float x, float y) override;
+    std::string getTipo() override { return "poligono"; };
+    std::string serializar() override;
+    static Poligono* desserializar(const std::string& json);
 };
 
 #endif

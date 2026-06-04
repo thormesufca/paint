@@ -9,6 +9,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <sstream>
 
 #define COR_SELECAO 0.5, 0.5, 0.5
 #define PI 3.14159265359
@@ -173,6 +174,35 @@ void Ponto::draw() const {
     glEnd();
 }
 
+Ponto* Ponto::desserializar(const std::string& json) {
+    float r, g, b, lw, x, y;
+    sscanf(json.c_str(),
+        "{\"tipo\":\"ponto\",\"cor\":[%f,%f,%f],\"lineWidth\":%f,\"x\":%f,\"y\":%f}",
+        &r, &g, &b, &lw, &x, &y);
+    Ponto* p = new Ponto(x, y);
+    p->setCor(r, g, b);
+    p->setLineWidth(lw);
+    return p;
+}
+
+std::string Ponto::serializar(){
+    std::ostringstream obj;
+    obj << "{\"tipo\":\"ponto\",\"cor\":[";
+    obj << cor[0];
+    obj << ",";
+    obj << cor[1];
+    obj << ",";
+    obj << cor[2];
+    obj << "],\"lineWidth\":";
+    obj << lineWidth;
+    obj << ",\"x\":";
+    obj << ponto.x;
+    obj << ",\"y\":";
+    obj << ponto.y;
+    obj << "}";
+    return obj.str();
+}
+
 void Ponto::rotacionar(float angulo){
     float rad = angulo * PI / 180.0f;
     float cosA = cos(rad), sinA = sin(rad);
@@ -293,6 +323,40 @@ int Linha::getCodigoPonto(Ponto2D ponto, float x, float y, int tolerancia){
     return codigo;
 }
 
+Linha* Linha::desserializar(const std::string& json) {
+    float r, g, b, lw, x1, y1, x2, y2;
+    sscanf(json.c_str(),
+        "{\"tipo\":\"linha\",\"cor\":[%f,%f,%f],\"lineWidth\":%f,\"p1\":[%f,%f],\"p2\":[%f,%f]}",
+        &r, &g, &b, &lw, &x1, &y1, &x2, &y2);
+    Linha* l = new Linha(x1, y1, x2, y2);
+    l->setCor(r, g, b);
+    l->setLineWidth(lw);
+    return l;
+}
+
+std::string Linha::serializar(){
+    std::ostringstream obj;
+    obj << "{\"tipo\":\"linha\",\"cor\":[";
+    obj << cor[0];
+    obj << ",";
+    obj << cor[1];
+    obj << ",";
+    obj << cor[2];
+    obj << "],\"lineWidth\":";
+    obj << lineWidth;
+    obj << ",\"p1\":[";
+    obj << p1.x;
+    obj << ",";
+    obj << p1.y;
+    obj << "],\"p2\":[";
+    obj << p2.x;
+    obj << ",";
+    obj << p2.y;
+    obj << "]";
+    obj << "}";
+    return obj.str();
+}
+
 // ====================
 // Poligono
 // ====================
@@ -314,16 +378,6 @@ void Poligono::draw() const {
             glVertex2f(v.x, v.y);
         }
     glEnd();
-
-    // DEBUG: coordenadas de cada vértice
-    glColor3f(1.0f, 1.0f, 0.0f);
-    for (const auto& v : vertices) {
-        char buf[32];
-        sprintf(buf, "(%.0f,%.0f)", v.x, v.y);
-        glRasterPos2f(v.x, v.y);
-        for (const char* c = buf; *c; c++)
-            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_10, *c);
-    }
 }
 
 void Poligono::setVertices(std::vector<Ponto2D> pontos){
@@ -430,5 +484,56 @@ Ponto2D Poligono::getCentroide() const {
     c.x /= vertices.size();
     c.y /= vertices.size();
     return c;
+}
+
+Poligono* Poligono::desserializar(const std::string& json) {
+    float r, g, b, lw;
+    sscanf(json.c_str(),
+        "{\"tipo\":\"poligono\",\"cor\":[%f,%f,%f],\"lineWidth\":%f",
+        &r, &g, &b, &lw);
+    Poligono* p = new Poligono();
+    p->setCor(r, g, b);
+    p->setLineWidth(lw);
+    size_t pos = json.find("\"vertices\":[") + 12;
+    while (pos < json.size() && json[pos] != ']') {
+        if (json[pos] == '[') {
+            float x, y;
+            sscanf(json.c_str() + pos, "[%f,%f]", &x, &y);
+            p->adicionarVertice(x, y);
+            pos = json.find(']', pos) + 1;
+        } else {
+            pos++;
+        }
+    }
+    return p;
+}
+
+std::string Poligono::serializar(){
+    std::ostringstream obj;
+    obj << "{\"tipo\":\"poligono\",\"cor\":[";
+    obj << cor[0];
+    obj << ",";
+    obj << cor[1];
+    obj << ",";
+    obj << cor[2];
+    obj << "],\"lineWidth\":";
+    obj << lineWidth;
+    obj << ",\"vertices\":[";
+    for (int i = 0; i < vertices.size(); i++)
+        {
+            Ponto2D v = vertices[i];
+            obj << "[";
+            obj << v.x;
+            obj << ",";
+            obj << v.y;
+            obj << "]";
+            if (i + 1 < vertices.size())
+            {
+                obj << ",";
+            }
+        }
+    obj << "]";
+    obj << "}";
+    return obj.str();
 }
 
