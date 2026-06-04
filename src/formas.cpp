@@ -8,6 +8,7 @@
 #endif
 
 #include <math.h>
+#include <stdio.h>
 
 #define COR_SELECAO 0.5, 0.5, 0.5
 #define PI 3.14159265359
@@ -313,6 +314,16 @@ void Poligono::draw() const {
             glVertex2f(v.x, v.y);
         }
     glEnd();
+
+    // DEBUG: coordenadas de cada vértice
+    glColor3f(1.0f, 1.0f, 0.0f);
+    for (const auto& v : vertices) {
+        char buf[32];
+        sprintf(buf, "(%.0f,%.0f)", v.x, v.y);
+        glRasterPos2f(v.x, v.y);
+        for (const char* c = buf; *c; c++)
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_10, *c);
+    }
 }
 
 void Poligono::setVertices(std::vector<Ponto2D> pontos){
@@ -324,8 +335,90 @@ void Poligono::setVertices(std::vector<Ponto2D> pontos){
 
 bool Poligono::selecionar(float x, float y)
 {
-    return false;
+    //Lista todas as arestas
+    std::vector<std::pair<Ponto2D, Ponto2D>> arestas;
+    std::vector<std::pair<Ponto2D, Ponto2D>> arestasEspeciais;
+    for(int i = 0; i < vertices.size(); i++){
+        Ponto2D a = vertices[i];
+        Ponto2D b = vertices[(i + 1) % vertices.size()];
+        arestas.push_back({a, b});
+    }
+    int intersecoes = 0;
+    //Analisar os casos triviais
+    for (int i =0; i < arestas.size(); i++){
+        Ponto2D a = arestas[i].first;
+        Ponto2D b = arestas[i].second;
+        int resultado = analisaCasosTriviais(a, b, x, y);
+        if(resultado == 1) {
+            intersecoes += 1;
+        }
+        if(resultado == 2){ // Indefinido, vai para casos especiais
+            arestasEspeciais.push_back(arestas[i]);
+        }
+    }
+
+    // Se ainda sobraram arestas, rodar casos especiais
+    for (int i = 0; i < arestasEspeciais.size(); i++)
+    {
+        Ponto2D a = arestasEspeciais[i].first;
+        Ponto2D b = arestasEspeciais[i].second;
+        bool resultado2 = analisaCasosEspeciais(a, b, x, y);
+        if (resultado2)
+            intersecoes += 1;
+        
+    }
+
+    if (intersecoes % 2 != 0)
+    {
+        selecionada = true;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
+
+// 0 - Não intercepta - Exclui
+// 1 - Intercepta
+// 2 - Indefinido
+int Poligono::analisaCasosTriviais(Ponto2D p1, Ponto2D p2, float x, float y){
+    if(p1.y > y && p2.y > y) // Acima
+        return 0;
+    
+    if(p1.y < y && p2.y < y) // Abaixo
+        return 0;
+
+    if(p1.x < x && p2.x < x) //Esquerda
+        return 0;
+        // À Direita              P1 acima e P2 abaixo   ou   P1 abaixo e P2 Acima
+    if((p1.x > x && p2.x > x) && ((p1.y > y && p2.y < y) || (p1.y < y && p2.y > y))) // À direita uma acima e outra abaixo
+        return 1;
+
+    return 2;
+}
+
+bool Poligono::analisaCasosEspeciais(Ponto2D p1, Ponto2D p2, float x, float y){
+    if(p1.y == y && p2.y == y) // arestas alinhadas com o tiro, descarta
+        return false;
+    if(p1.y == y || p2.y == y){ // tiro passa por um dos vértices
+        if((p1.y == y && p2.y > y) || (p2.y == y && p1.y > y)){// Um vértice no tiro e outro acima  - conta
+            return true;
+        }
+        else{ // Senão - Um vértice no tiro e outro abaixo - não conta
+            return false;
+        }
+    }
+    
+    float xi = p1.x + (y - p1.y) * (p2.x - p1.x) / (p2.y - p1.y); // Calcula x da interseção
+    if(xi > x){
+        return true;
+    } else{
+        return false;
+    }
+}
+
+
 
 Ponto2D Poligono::getCentroide() const {
     Ponto2D c;

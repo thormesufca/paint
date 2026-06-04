@@ -61,13 +61,13 @@ private:
     Ponto2D p1;
     Ponto2D p2;
     int analisaCasosTriviais(int codigo1, int codigo2);
+    int getCodigoPonto(Ponto2D ponto, float x, float y, int tolerancia);
 
 public:
     Linha(float x1, float y1, float x2, float y2);
 
     void setPontos(float x1, float y1, float x2, float y2);
     void setPontos(std::vector<Ponto2D>) override;
-    int getCodigoPonto(Ponto2D ponto, float x, float y, int tolerancia);
     void draw() const override;
     std::vector<Ponto2D> getPontos() const override { return {p1, p2}; }
     bool selecionar(float x, float y) override;
@@ -77,6 +77,9 @@ class Poligono : public Forma
 {
 private:
     std::vector<Ponto2D> vertices;
+    int analisaCasosTriviais(Ponto2D p1, Ponto2D p2, float x, float y);
+    bool analisaCasosEspeciais(Ponto2D p1, Ponto2D p2, float x, float y);
+
 
 public:
     void adicionarVertice(float x, float y);

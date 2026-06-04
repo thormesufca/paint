@@ -9,87 +9,181 @@
 #define HEIGHT 600
 #define WIDTH 800
 #define SPEED 2.0
+#define TOOLBAR_WIDTH 80
+#define MARGEM_LATERAL 5
+#define ALTURA_ELEMENTO 35
+#define MARGEM_TOPO 15
+#define SLOT_BOTAO (ALTURA_ELEMENTO + 10) // Margem 10 pixels
+#define MARGEM_BASE 15
+#define SLOT_CORES (ALTURA_ELEMENTO + 10) // Margem 10 pixels
+#define TEXTO_PAD_H 7
+#define TEXTO_PAD_V 12
 
 int choice = 1;
-std::vector<Forma*> formas;
+std::vector<Forma *> formas;
 
-Ponto2D mouseAtual     = {-1.0f, -1.0f};
+Ponto2D mouseAtual = {-1.0f, -1.0f};
 Ponto2D linhaPrimeiroP = {-1.0f, -1.0f};
-Poligono* poligonoAtual       = nullptr;
-bool      poligonoPrimeiroPonto = true;
-bool  arrastando     = false;
+bool poligonoPrimeiroPonto = true;
+std::vector<Ponto2D> verticesPoligonoTemp;
+std::vector<Linha *> linhasPoligonoTemp;
+bool arrastando = false;
 float xArrastaInicio = 0.0f;
 float yArrastaInicio = 0.0f;
-Forma* formaSelecionada = nullptr;
+Forma *formaSelecionada = nullptr;
 
+float corAtual[3] = {1.0f, 1.0f, 1.0f};
+int corSelecionada = 6; // Menu construído de baixo para cima, última cor aparece no topo, selecionada por padrão
 
+const float CORES[7][3] = {
+    {0.0f, 1.0f, 1.0f},
+    {1.0f, 0.0f, 1.0f},
+    {1.0f, 1.0f, 0.0f},
+    {0.0f, 0.0f, 1.0f},
+    {0.0f, 1.0f, 0.0f},
+    {1.0f, 0.0f, 0.0f},
+    {1.0f, 1.0f, 1.0f},
+};
 
-int init(){
-    glClearColor(1.0, 1.0, 1.0, 1.0);
+int init()
+{
+    glClearColor(0.0, 0.0, 0.0, 1.0);
     glMatrixMode(GL_PROJECTION);
     gluOrtho2D(0.0, WIDTH, 0.0, HEIGHT);
     return 0;
 }
 
-void keyboard(unsigned char key, int x, int y){
-    switch(key){
-        case '1':
-            choice = 1;
-            break;
-        case '2':
-            choice = 2;
-            break;
-        case '3':
-            choice = 3;
-            break;
-        case '4':
-            choice = 4;
-            break;
-        case 'R':
-        case 'r':
-            if(formaSelecionada) formaSelecionada->rotacionar(-45.0f);
-            break;
-        case 'E':
-        case 'e':
-            if(formaSelecionada) formaSelecionada->rotacionar(45.0f);
-            break;
-        case 'z':
-            if (formaSelecionada) {
-                auto it = std::find(formas.begin(), formas.end(), formaSelecionada);
-                if(it != formas.end()) formas.erase(it);
-                delete formaSelecionada;
-                formaSelecionada = nullptr;
-            }
-            break;
-        case 'c':
-        case 'C':
-            if(formaSelecionada) formaSelecionada->cisalharHorizontal(0.1f);
-            break;
-        case 'x':
-        case 'X':
-            if(formaSelecionada) formaSelecionada->cisalharHorizontal(-0.1f);
-            break;
-        case 'w':
-        case 'W':
-            if(formaSelecionada) formaSelecionada->transladar(0, 1.0f * SPEED);
-            break;
-        case 'a':
-        case 'A':
-            if(formaSelecionada) formaSelecionada->transladar(-1.0f * SPEED, 0);
-            break;
-        case 's':
-        case 'S':
-            if(formaSelecionada) formaSelecionada->transladar(0, -1.0f * SPEED);
-            break;
-        case 'd':
-        case 'D':
-            if(formaSelecionada) formaSelecionada->transladar(1.0f * SPEED, 0);
-            break;
+bool temPreview()
+{
+    return (choice == 2 && linhaPrimeiroP.x != -1.0f) || (choice == 3 && !poligonoPrimeiroPonto);
+}
+
+void desselecionar()
+{
+    for (auto &forma : formas)
+        forma->selecionada = false;
+    formaSelecionada = nullptr;
+}
+
+void keyboard(unsigned char key, int x, int y)
+{
+    switch (key)
+    {
+    case '1':
+        choice = 1;
+        desselecionar();
+        break;
+    case '2':
+        choice = 2;
+        desselecionar();
+        break;
+    case '3':
+        choice = 3;
+        desselecionar();
+        break;
+    case '4':
+        choice = 4;
+        break;
+    case 'H':
+    case 'h':
+        if (formaSelecionada)
+            formaSelecionada->refletirHorizontal();
+        break;
+    case 'V':
+    case 'v':
+        if (formaSelecionada)
+            formaSelecionada->refletirVertical();
+        break;
+    case 'Q':
+    case 'q':
+        if (formaSelecionada)
+            formaSelecionada->rotacionar(15.0f);
+        break;
+    case 'E':
+    case 'e':
+        if (formaSelecionada)
+            formaSelecionada->rotacionar(-15.0f);
+        break;
+    case 'z':
+        if (formaSelecionada)
+        {
+            auto it = std::find(formas.begin(), formas.end(), formaSelecionada);
+            if (it != formas.end())
+                formas.erase(it);
+            delete formaSelecionada;
+            formaSelecionada = nullptr;
         }
+        break;
+    case 'I':
+    case 'i':
+        if (formaSelecionada)
+            formaSelecionada->cisalharVertical(0.01f);
+        break;
+    case 'J':
+    case 'j':
+        if (formaSelecionada)
+            formaSelecionada->cisalharHorizontal(-0.01f);
+        break;
+    case 'K':
+    case 'k':
+        if (formaSelecionada)
+            formaSelecionada->cisalharVertical(-0.01f);
+        break;
+    case 'L':
+    case 'l':
+        if (formaSelecionada)
+            formaSelecionada->cisalharHorizontal(0.01f);
+        break;
+    case 'w':
+    case 'W':
+        if (formaSelecionada)
+            formaSelecionada->transladar(0, 1.0f * SPEED);
+        break;
+    case 'a':
+    case 'A':
+        if (formaSelecionada)
+            formaSelecionada->transladar(-1.0f * SPEED, 0);
+        break;
+    case 's':
+    case 'S':
+        if (formaSelecionada)
+            formaSelecionada->transladar(0, -1.0f * SPEED);
+        break;
+    case 'd':
+    case 'D':
+        if (formaSelecionada)
+            formaSelecionada->transladar(1.0f * SPEED, 0);
+        break;
+    case 127: // DELETE
+        if (formaSelecionada)
+        {
+            auto it = std::find(formas.begin(), formas.end(), formaSelecionada);
+            if (it != formas.end())
+                formas.erase(it);
+            delete formaSelecionada;
+            formaSelecionada = nullptr;
+        }
+        break;
+    case 27: // ESC
+        desselecionar();
+    case 43: // + Escalar para cima
+        if (formaSelecionada)
+        {
+            formaSelecionada->escalar(1.05, 1.05);
+        }
+        break;
+    case 45: // - Escalar para baixo
+        if (formaSelecionada)
+        {
+            formaSelecionada->escalar(0.95, 0.95);
+        }
+        break;
+    }
     glutPostRedisplay();
 }
 
-void teclasEspeciais(int key, int x, int y){
+void teclasEspeciais(int key, int x, int y)
+{
     float dx = 0;
     float dy = 0;
     switch (key)
@@ -109,104 +203,182 @@ void teclasEspeciais(int key, int x, int y){
     default:
         break;
     }
-    for(auto &forma: formas){
-        forma->transladar(dx, dy);
-    }
+    if (formaSelecionada)
+        formaSelecionada->transladar(dx, dy);
     glutPostRedisplay();
 }
 
-void addPonto(float x, float y) {
-    Ponto* p = new Ponto(x, y);
-    p->setCor(1.0, 0.0, 0.0);
+void addPonto(float x, float y)
+{
+    Ponto *p = new Ponto(x, y);
+    p->setCor(corAtual[0], corAtual[1], corAtual[2]);
     p->setLineWidth(10.0);
     formas.push_back(p);
 }
 
-void addLinha(float x, float y, bool ativo) {
-    if (!ativo) {
-        linhaPrimeiroP = {-1.0f, -1.0f};
+void addLinha(float x, float y, bool ativo)
+{
+    if (!ativo)
+    {
+        linhaPrimeiroP = {-1.0, -1.0};
         return;
     }
 
-    if (linhaPrimeiroP.x == -1.0f) {
+    if (linhaPrimeiroP.x == -1.0)
+    {
         linhaPrimeiroP = {x, y};
-    } else {
-        Linha* l = new Linha(linhaPrimeiroP.x, linhaPrimeiroP.y, x, y);
-        l->setCor(0.0, 1.0, 0.0);
+    }
+    else
+    {
+        Linha *l = new Linha(linhaPrimeiroP.x, linhaPrimeiroP.y, x, y);
+        l->setCor(corAtual[0], corAtual[1], corAtual[2]);
         l->setLineWidth(2.0);
         formas.push_back(l);
-        linhaPrimeiroP = {-1.0f, -1.0f};
+        linhaPrimeiroP = {-1.0, -1.0};
     }
 }
 
-void addPoligono(float x, float y, bool ativo) {
-    if (!ativo) {
-        poligonoPrimeiroPonto = true;
-
-        if (poligonoAtual && poligonoAtual->getNumVertices() < 3) {
-            formas.pop_back();
-            delete poligonoAtual;
+void addPoligono(float x, float y, bool ativo)
+{
+    if (!ativo)
+    {
+        if (verticesPoligonoTemp.size() >= 3)
+        {
+            for (Linha *l : linhasPoligonoTemp)
+            {
+                auto it = std::find(formas.begin(), formas.end(), (Forma *)l);
+                if (it != formas.end())
+                    formas.erase(it);
+                delete l;
+            }
+            Poligono *p = new Poligono();
+            p->setCor(corAtual[0], corAtual[1], corAtual[2]);
+            p->setLineWidth(2.0);
+            for (auto &v : verticesPoligonoTemp)
+                p->adicionarVertice(v.x, v.y);
+            formas.push_back(p);
         }
-        poligonoAtual = nullptr;
+        else
+        {
+            for (Linha *l : linhasPoligonoTemp)
+            {
+                auto it = std::find(formas.begin(), formas.end(), (Forma *)l);
+                if (it != formas.end())
+                    formas.erase(it);
+                delete l;
+            }
+        }
+        linhasPoligonoTemp.clear();
+        verticesPoligonoTemp.clear();
+        poligonoPrimeiroPonto = true;
         return;
     }
 
-    if (poligonoPrimeiroPonto) {
-        poligonoAtual = new Poligono();
-        poligonoAtual->setCor(0.0, 0.0, 1.0);
-        poligonoAtual->setLineWidth(2.0);
-        poligonoAtual->adicionarVertice(x, y);
+    if (poligonoPrimeiroPonto)
+    {
+        verticesPoligonoTemp.push_back({x, y});
         poligonoPrimeiroPonto = false;
-        formas.push_back(poligonoAtual);
-    } else {
-        poligonoAtual->adicionarVertice(x, y);
+    }
+    else
+    {
+        Ponto2D last = verticesPoligonoTemp.back();
+        Linha *l = new Linha(last.x, last.y, x, y);
+        l->setCor(corAtual[0], corAtual[1], corAtual[2]);
+        l->setLineWidth(2.0);
+        formas.push_back(l);
+        linhasPoligonoTemp.push_back(l);
+        verticesPoligonoTemp.push_back({x, y});
     }
 }
 
-void motionPassiva(int x, int y) {
+void motionPassiva(int x, int y)
+{
     mouseAtual = {(float)x, (float)(HEIGHT - y)};
-    bool temPreview = (choice == 2 && linhaPrimeiroP.x != -1.0f) ||
-                      (choice == 3 && !poligonoPrimeiroPonto);
-    if (temPreview) glutPostRedisplay();
+    if (temPreview())
+        glutPostRedisplay();
 }
 
-void motion(int x, int y) {
+void motion(int x, int y)
+{
     float fx = (float)x;
     float fy = (float)(HEIGHT - y);
     mouseAtual = {fx, fy};
 
-    // if (arrastando) {
-    //     float dx = fx - xArrastaInicio;
-    //     float dy = fy - yArrastaInicio;
-    //     for (auto& forma : formas) {
-    //         if (forma->selecionada) forma->transladar(dx, dy);
-    //     }
-    //     xArrastaInicio = fx;
-    //     yArrastaInicio = fy;
-    // }
-
-    bool temPreview = (choice == 2 && linhaPrimeiroP.x != -1.0f) ||
-                      (choice == 3 && !poligonoPrimeiroPonto);
-    if (temPreview) glutPostRedisplay();
+    if (arrastando)
+    {
+        float dx = fx - xArrastaInicio;
+        float dy = fy - yArrastaInicio;
+        formaSelecionada->transladar(dx, dy);
+        xArrastaInicio = fx;
+        yArrastaInicio = fy;
+        glutPostRedisplay();
+    }
+    if (temPreview())
+        glutPostRedisplay();
 }
 
-void mouse(int button, int state, int x, int y){
+void mouse(int button, int state, int x, int y)
+{
     float fx = (float)x;
     float fy = (float)(HEIGHT - y);
 
-    if(button == GLUT_LEFT_BUTTON){
-        if(state == GLUT_DOWN){
-            bool temSelecionada = false;
-            //for (auto& forma : formas)
-                // if (forma->selecionada) { temSelecionada = true; break; }
+    if (fx < TOOLBAR_WIDTH)
+    { // Verifica se o clique foi na barra de ferramentas
+        if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
+        {
+            // Botões de ferramenta
+            for (int i = 0; i < 4; i++)
+            {
+                float yTop = HEIGHT - MARGEM_TOPO - i * SLOT_BOTAO;
+                float yBot = yTop - ALTURA_ELEMENTO;
+                if (fy >= yBot && fy <= yTop)
+                {
+                    addLinha(0, 0, false);
+                    addPoligono(0, 0, false);
+                    choice = i + 1;
+                    if (choice != 4)
+                        desselecionar();
+                    glutPostRedisplay();
+                    return;
+                }
+            }
+            // Quadros de cor
+            for (int i = 0; i < 7; i++)
+            {
+                float yBot = MARGEM_BASE + i * SLOT_CORES;
+                float yTop = yBot + ALTURA_ELEMENTO;
+                if (fy >= yBot && fy <= yTop)
+                {
+                    corSelecionada = i;
+                    corAtual[0] = CORES[i][0];
+                    corAtual[1] = CORES[i][1];
+                    corAtual[2] = CORES[i][2];
+                    glutPostRedisplay();
+                    return;
+                }
+            }
+        }
+        return;
+    }
 
-            // if (temSelecionada) {
-            //     arrastando = true;
-            //     xArrastaInicio = fx;
-            //     yArrastaInicio = fy;
-            // } else
-            if (!temSelecionada) {
-                switch(choice) {
+    if (button == GLUT_LEFT_BUTTON)
+    {
+        if (state == GLUT_DOWN)
+        {
+            bool temSelecionada = formaSelecionada != nullptr;
+            // for (auto& forma : formas)
+            //  if (forma->selecionada) { temSelecionada = true; break; }
+
+            if (temSelecionada)
+            {
+                arrastando = true;
+                xArrastaInicio = fx;
+                yArrastaInicio = fy;
+            }
+            else if (!temSelecionada)
+            {
+                switch (choice)
+                {
                 case 1:
                     addLinha(0, 0, false);
                     addPoligono(0, 0, false);
@@ -221,100 +393,161 @@ void mouse(int button, int state, int x, int y){
                     addPoligono(fx, fy, true);
                     break;
                 case 4:
-                    for(auto &forma: formas)
+                    for (auto &forma : formas)
                         forma->selecionada = false;
                     formaSelecionada = nullptr;
-                    for(auto &forma: formas){
-                        if(forma->selecionar(fx, fy)){
+                    for (auto &forma : formas)
+                    {
+                        if (forma->selecionar(fx, fy))
+                        {
                             formaSelecionada = forma;
                             break;
                         }
                     }
                 }
             }
-        } else if(state == GLUT_UP){
-            // arrastando = false;
+        }
+        else if (state == GLUT_UP)
+        {
+            arrastando = false;
         }
     }
-    if(button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN){
+    if (button == GLUT_RIGHT_BUTTON && state == GLUT_DOWN)
+    {
         addLinha(0, 0, false);
         addPoligono(0, 0, false);
+        if (formaSelecionada)
+        {
+            for (auto &forma : formas)
+                forma->selecionada = false;
+            formaSelecionada = nullptr;
+        }
     }
     glutPostRedisplay();
 }
 
-void display(){
-    glClear(GL_COLOR_BUFFER_BIT);
+void desenharToolbar()
+{
+    // Fundo
+    glColor3f(0, 0, 0);
+    glBegin(GL_QUADS);
+    glVertex2f(0, 0);
+    glVertex2f(TOOLBAR_WIDTH, 0);
+    glVertex2f(TOOLBAR_WIDTH, HEIGHT);
+    glVertex2f(0, HEIGHT);
+    glEnd();
 
-    for (const auto& forma : formas) {
-        if (!forma->selecionada) forma->draw();
+    // Separador
+    glColor3f(1, 1, 1);
+    glLineWidth(2.0);
+    glBegin(GL_LINES);
+    glVertex2f(TOOLBAR_WIDTH, 0);
+    glVertex2f(TOOLBAR_WIDTH, HEIGHT);
+    glEnd();
+
+    // Botões de ferramenta
+    const char *nomes[] = {"Ponto", "Linha", "Poligono", "Selecionar"};
+    for (int i = 0; i < 4; i++)
+    {
+        float yTop = HEIGHT - MARGEM_TOPO - i * SLOT_BOTAO;
+        float yBot = yTop - ALTURA_ELEMENTO;
+        if (choice == i + 1)
+            glColor3f(0.3, 0.3, 0.75);
+        else
+            glColor3f(0.28, 0.28, 0.28);
+        glBegin(GL_QUADS);
+        glVertex2f(MARGEM_LATERAL, yBot);
+        glVertex2f(TOOLBAR_WIDTH - MARGEM_LATERAL, yBot);
+        glVertex2f(TOOLBAR_WIDTH - MARGEM_LATERAL, yTop);
+        glVertex2f(MARGEM_LATERAL, yTop);
+        glEnd();
+        escrever(MARGEM_LATERAL + TEXTO_PAD_H, (int)(yBot + TEXTO_PAD_V), nomes[i]);
     }
 
-    for (const auto& forma : formas) {
-        if (forma->selecionada) {
+    // CORESes de cor
+    for (int i = 0; i < 7; i++)
+    {
+        float yBot = MARGEM_BASE + i * SLOT_CORES;
+        float yTop = yBot + ALTURA_ELEMENTO;
+        glColor3fv(CORES[i]);
+        glBegin(GL_QUADS);
+        glVertex2f(MARGEM_LATERAL, yBot);
+        glVertex2f(TOOLBAR_WIDTH - MARGEM_LATERAL, yBot);
+        glVertex2f(TOOLBAR_WIDTH - MARGEM_LATERAL, yTop);
+        glVertex2f(MARGEM_LATERAL, yTop);
+        glEnd();
+        if (corSelecionada == i)
+        {
+            glColor3f(0.5, 0.5, 0.5);
+            glLineWidth(2.5f);
+            glBegin(GL_LINE_LOOP);
+            glVertex2f(MARGEM_LATERAL, yBot);
+            glVertex2f(TOOLBAR_WIDTH - MARGEM_LATERAL, yBot);
+            glVertex2f(TOOLBAR_WIDTH - MARGEM_LATERAL, yTop);
+            glVertex2f(MARGEM_LATERAL, yTop);
+            glEnd();
+        }
+    }
+}
+
+void display()
+{
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    desenharToolbar();
+
+    for (const auto &forma : formas)
+    {
+        if (!forma->selecionada)
+            forma->draw();
+    }
+
+    for (const auto &forma : formas)
+    {
+        if (forma->selecionada)
+        {
             forma->draw();
         }
     }
+
     // preview rubber-band
-    if (mouseAtual.x != -1.0f) {
+    if (mouseAtual.x != -1.0f)
+    {
         glEnable(GL_LINE_STIPPLE);
         glLineStipple(1, 0xAAAA);
         glLineWidth(1.0f);
 
-        if (choice == 2 && linhaPrimeiroP.x != -1.0f) {
-            glColor3f(0.0f, 1.0f, 0.0f);
+        if (choice == 2 && linhaPrimeiroP.x != -1.0f)
+        {
+            glColor3fv(corAtual);
             glBegin(GL_LINES);
-                glVertex2f(linhaPrimeiroP.x, linhaPrimeiroP.y);
-                glVertex2f(mouseAtual.x, mouseAtual.y);
+            glVertex2f(linhaPrimeiroP.x, linhaPrimeiroP.y);
+            glVertex2f(mouseAtual.x, mouseAtual.y);
             glEnd();
         }
 
-        if (choice == 3 && !poligonoPrimeiroPonto && poligonoAtual) {
-            auto pts = poligonoAtual->getPontos();
-
-            // draw() ignora polígonos com < 3 vértices; desenha as arestas existentes manualmente
-            if (pts.size() == 2) {
-                glDisable(GL_LINE_STIPPLE);
-                glColor3f(0.0f, 0.0f, 1.0f);
-                glLineWidth(2.0f);
-                glBegin(GL_LINES);
-                    glVertex2f(pts[0].x, pts[0].y);
-                    glVertex2f(pts[1].x, pts[1].y);
-                glEnd();
-                glEnable(GL_LINE_STIPPLE);
-                glLineStipple(1, 0xAAAA);
-                glLineWidth(1.0f);
-            }
-
-            if (!pts.empty()) {
-                glColor3f(0.0f, 0.0f, 1.0f);
-                glBegin(GL_LINES);
-                    glVertex2f(pts.back().x, pts.back().y);
-                    glVertex2f(mouseAtual.x, mouseAtual.y);
-                glEnd();
-            }
+        if (choice == 3 && !poligonoPrimeiroPonto && !verticesPoligonoTemp.empty())
+        {
+            glColor3fv(corAtual);
+            glBegin(GL_LINES);
+            glVertex2f(verticesPoligonoTemp.back().x, verticesPoligonoTemp.back().y);
+            glVertex2f(mouseAtual.x, mouseAtual.y);
+            glEnd();
         }
 
         glDisable(GL_LINE_STIPPLE);
     }
 
-    escrever(10, 30, "Pressione 1 para desenhar pontos, 2 para desenhar linhas e 3 para desenhar poligonos.");
-    escrever(10, 15, "Clique com o mouse para desenhar. Clique com o botao direito para finalizar um poligono.");
-
-    const char* ferramentas[] = {"", "Ponto", "Linha", "Poligono", "Selecao"};
-    escrever(WIDTH - 40, 10, ferramentas[choice]);
-
     glutSwapBuffers();
 }
 
-int main(int argc, char** argv){
+int main(int argc, char **argv)
+{
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
     glutInitWindowSize(WIDTH, HEIGHT);
     glutInitWindowPosition(100, 100);
-    glutCreateWindow("OpenGL Example");
-
-    printf("Pressione 1 para desenhar pontos, 2 para desenhar linhas e 3 para desenhar poligonos.\nClique com o mouse para desenhar. Clique com o botao direito para finalizar um poligono.\n");
+    glutCreateWindow("Paint - Computacao Grafica");
 
     init();
     glutDisplayFunc(display);
