@@ -26,6 +26,9 @@ int winHeight = HEIGHT;
 int choice = 1;
 std::vector<Forma *> formas;
 
+bool animando = false;
+std::vector<Ponto2D> velocidades;
+
 std::string mensagemStatus = "";
 bool exibirStatus = false;
 bool statusSucesso = false;
@@ -41,7 +44,7 @@ float yArrastaInicio = 0.0f;
 Forma *formaSelecionada = nullptr;
 
 float corAtual[3] = {1.0f, 1.0f, 1.0f};
-int corSelecionada = 6; // Menu construído de baixo para cima, última cor aparece no topo, selecionada por padrão
+int corSelecionada = 6;
 
 const float CORES[7][3] = {
     {0.0f, 1.0f, 1.0f},
@@ -70,6 +73,42 @@ void reshape(int w, int h)
     glMatrixMode(GL_MODELVIEW);
 }
 
+void atualizarAnimacao(int)
+{
+    if (!animando) return;
+
+    for (int i = 0; i < formas.size(); i++)
+    {
+        auto pontos = formas[i]->getPontos();
+        float minX = pontos[0].x, maxX = pontos[0].x;
+        float minY = pontos[0].y, maxY = pontos[0].y;
+        for (auto &p : pontos)
+        {
+            if (p.x < minX) minX = p.x;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.y > maxY) maxY = p.y;
+        }
+
+        float &vx = velocidades[i].x;
+        float &vy = velocidades[i].y;
+
+        if (minX + vx < TOOLBAR_WIDTH) vx =  std::abs(vx);
+        if (maxX + vx > winWidth)      vx = -std::abs(vx);
+        if (minY + vy < 0)             vy =  std::abs(vy);
+        if (maxY + vy > winHeight)     vy = -std::abs(vy);
+
+        formas[i]->transladar(vx, vy);
+        std::string tipo = formas[i]->getTipo();
+        if(tipo != "ponto"){
+            formas[i]->rotacionar(-5);
+        }
+    }
+
+    glutPostRedisplay();
+    glutTimerFunc(8, atualizarAnimacao, 0);
+}
+
 bool temPreview()
 {
     return (choice == 2 && linhaPrimeiroP.x != -1.0f) || (choice == 3 && !poligonoPrimeiroPonto);
@@ -86,6 +125,20 @@ void keyboard(unsigned char key, int x, int y)
 {
     switch (key)
     {
+    case 32: // Espaço — toggle animação bounce
+        animando = !animando;
+        if (animando)
+        {
+            velocidades.clear();
+            for (int i = 0; i < (int)formas.size(); i++)
+            {
+                float vx = (i % 3 + 1) * 3.5 * (i % 2 == 0 ? 1 : -1);
+                float vy = (i % 4 + 1) * 3.0 * (i % 3 == 0 ? 1 : -1);
+                velocidades.push_back({vx, vy});
+            }
+            glutTimerFunc(8, atualizarAnimacao, 0);
+        }
+        break;
     case '1':
         choice = 1;
         desselecionar();
@@ -331,11 +384,12 @@ void motion(int x, int y)
         glutPostRedisplay();
     }
     if (temPreview())
-        glutPostRedisplay();
+    glutPostRedisplay();
 }
 
 void mouse(int button, int state, int x, int y)
 {
+    if (animando) return;
     float fx = (float)x;
     float fy = (float)(winHeight - y);
 
@@ -428,6 +482,7 @@ void mouse(int button, int state, int x, int y)
         }
         return;
     }
+
 
     if (button == GLUT_LEFT_BUTTON)
     {
@@ -560,7 +615,7 @@ void desenharToolbar()
         escrever(MARGEM_LATERAL + TEXTO_PAD_H, (int)(yBot + TEXTO_PAD_V), "Carregar");
     }
 
-    // CORESes de cor
+    // Quadros de cor
     for (int i = 0; i < 7; i++)
     {
         float yBot = MARGEM_BASE + i * SLOT_CORES;
