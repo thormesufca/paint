@@ -12,6 +12,11 @@
 #define COR_SELECAO 0.5, 0.5, 0.5
 #define PI 3.14159265359
 
+const int ESQ = 0b1000;
+const int DIR = 0b0100;
+const int CIMA = 0b0010;
+const int BAIXO = 0b0001;
+
 // ====================
 // Forma
 // ====================
@@ -226,7 +231,65 @@ void Linha::setPontos(std::vector<Ponto2D> pts) {
 }
 
 bool Linha::selecionar(float x, float y){
+    int tolerancia = 5;
+    Ponto2D p1 = getPontos()[0];
+    Ponto2D p2 = getPontos()[1];
+    int codigoP1 = getCodigoPonto(p1, x, y, tolerancia);
+    int codigoP2 = getCodigoPonto(p2, x, y, tolerancia);
+    int resultado;
+    while ((resultado = analisaCasosTriviais(codigoP1, codigoP2)) == 2){//Indefinido
+        if(codigoP1 & ESQ){
+            p1.y = p1.y + (p2.y - p1.y) * ((x - tolerancia) - p1.x) / (p2.x - p1.x);
+            p1.x = x - tolerancia;
+        }
+        else if(codigoP1 & DIR){
+            p1.y = p1.y + (p2.y - p1.y) * ((x + tolerancia) - p1.x) / (p2.x - p1.x);
+            p1.x = x + tolerancia;
+        }
+        else if(codigoP1 & BAIXO){
+            p1.x = p1.x + (p2.x - p1.x) * ((y - tolerancia) - p1.y) / (p2.y - p1.y);
+            p1.y = y - tolerancia;
+        }
+        else { //CIMA
+            p1.x = p1.x + (p2.x - p1.x) * ((y + tolerancia) - p1.y) / (p2.y - p1.y);
+            p1.y = y + tolerancia;
+        }
+        codigoP1 = getCodigoPonto(p1, x, y, tolerancia);
+    }
+    if(resultado == 1){
+        selecionada = true;
+        return true;
+    }
     return false;
+}
+
+// 0 - Trivial Negativo
+// 1 - Trivial Positivo
+// 2 - Indefinido
+int Linha::analisaCasosTriviais(int codigo1, int codigo2){
+    if (codigo1 == 0 || codigo2 == 0)
+    { // 0000 em algum ponto - Caso trivial positivo
+        return 1;
+    }
+    if ((codigo1 & codigo2) > 0)
+    { // AND tem algum 1 - Caso trivial negativo
+        return 0;
+    }
+    return 2;
+}
+
+int Linha::getCodigoPonto(Ponto2D ponto, float x, float y, int tolerancia){
+    int codigo = 0;
+    if (ponto.x < x - tolerancia)
+        codigo |= ESQ;
+    else if (ponto.x > x + tolerancia)
+        codigo |= DIR;
+    if (ponto.y < y - tolerancia)
+        codigo |= BAIXO;
+    else if (ponto.y > y + tolerancia)
+        codigo |= CIMA;
+
+    return codigo;
 }
 
 // ====================
