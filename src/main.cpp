@@ -39,6 +39,7 @@ bool poligonoPrimeiroPonto = true;
 std::vector<Ponto2D> verticesPoligonoTemp;
 std::vector<Linha *> linhasPoligonoTemp;
 bool arrastando = false;
+bool esperandoArrasto = false;
 float xArrastaInicio = 0.0f;
 float yArrastaInicio = 0.0f;
 Forma *formaSelecionada = nullptr;
@@ -387,6 +388,17 @@ void motion(int x, int y)
     glutPostRedisplay();
 }
 
+void verificarArrasto(int)
+{
+    if (esperandoArrasto) {
+        esperandoArrasto = false;
+        arrastando = true;
+        // Sincroniza início do arrasto com posição atual do mouse
+        xArrastaInicio = mouseAtual.x;
+        yArrastaInicio = mouseAtual.y;
+    }
+}
+
 void mouse(int button, int state, int x, int y)
 {
     if (animando) return;
@@ -489,16 +501,16 @@ void mouse(int button, int state, int x, int y)
         if (state == GLUT_DOWN)
         {
             bool temSelecionada = formaSelecionada != nullptr;
-            // for (auto& forma : formas)
-            //  if (forma->selecionada) { temSelecionada = true; break; }
 
             if (temSelecionada)
             {
-                arrastando = true;
+                // Aguarda 200ms antes de ativar o arrasto
+                esperandoArrasto = true;
                 xArrastaInicio = fx;
                 yArrastaInicio = fy;
+                glutTimerFunc(200, verificarArrasto, 0);
             }
-            else if (!temSelecionada)
+            else
             {
                 switch (choice)
                 {
@@ -532,6 +544,40 @@ void mouse(int button, int state, int x, int y)
         }
         else if (state == GLUT_UP)
         {
+            if (esperandoArrasto)
+            {
+                // Click curto (< 200ms): tratar como click normal
+                esperandoArrasto = false;
+                switch (choice)
+                {
+                case 1:
+                    addLinha(0, 0, false);
+                    addPoligono(0, 0, false);
+                    addPonto(xArrastaInicio, yArrastaInicio);
+                    break;
+                case 2:
+                    addPoligono(0, 0, false);
+                    addLinha(xArrastaInicio, yArrastaInicio, true);
+                    break;
+                case 3:
+                    addLinha(0, 0, false);
+                    addPoligono(xArrastaInicio, yArrastaInicio, true);
+                    break;
+                case 4:
+                    for (auto &forma : formas)
+                        forma->selecionada = false;
+                    formaSelecionada = nullptr;
+                    for (auto &forma : formas)
+                    {
+                        if (forma->selecionar(xArrastaInicio, yArrastaInicio))
+                        {
+                            formaSelecionada = forma;
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
             arrastando = false;
         }
     }

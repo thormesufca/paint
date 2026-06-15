@@ -373,7 +373,7 @@ void Poligono::draw() const {
 
     glLineWidth(lineWidth);
 
-    glBegin(GL_LINE_LOOP);
+    glBegin(GL_POLYGON);
         for (const auto& v : vertices) {
             glVertex2f(v.x, v.y);
         }
