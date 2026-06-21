@@ -80,6 +80,34 @@ float distancia2(Ponto2D a, Ponto2D b)
     return dx * dx + dy * dy;
 }
 
+// Translada a forma limitando o deslocamento para que ela inteira (bounding box)
+// permaneca dentro da area de desenho (fora da toolbar e da barra superior)
+void transladarLimitado(Forma *forma, float dx, float dy)
+{
+    auto pontos = forma->getPontos();
+    if (pontos.empty()) return;
+
+    float minX = pontos[0].x, maxX = pontos[0].x;
+    float minY = pontos[0].y, maxY = pontos[0].y;
+    for (auto &p : pontos)
+    {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+    }
+
+    float xMin = TOOLBAR_WIDTH, xMax = winWidth;
+    float yMin = 0, yMax = winHeight - BARRA_TOPO;
+
+    if (minX + dx < xMin) dx = xMin - minX;
+    if (maxX + dx > xMax) dx = xMax - maxX;
+    if (minY + dy < yMin) dy = yMin - minY;
+    if (maxY + dy > yMax) dy = yMax - maxY;
+
+    forma->transladar(dx, dy);
+}
+
 void reshape(int w, int h)
 {
     winWidth = w;
@@ -318,22 +346,22 @@ void keyboard(unsigned char key, int x, int y)
     case 'w':
     case 'W':
         if (formaSelecionada)
-            formaSelecionada->transladar(0, 1.0f * SPEED);
+            transladarLimitado(formaSelecionada, 0, 1.0f * SPEED);
         break;
     case 'a':
     case 'A':
         if (formaSelecionada)
-            formaSelecionada->transladar(-1.0f * SPEED, 0);
+            transladarLimitado(formaSelecionada, -1.0f * SPEED, 0);
         break;
     case 's':
     case 'S':
         if (formaSelecionada)
-            formaSelecionada->transladar(0, -1.0f * SPEED);
+            transladarLimitado(formaSelecionada, 0, -1.0f * SPEED);
         break;
     case 'd':
     case 'D':
         if (formaSelecionada)
-            formaSelecionada->transladar(1.0f * SPEED, 0);
+            transladarLimitado(formaSelecionada, 1.0f * SPEED, 0);
         break;
     case 127: // DELETE
         if (formaSelecionada)
@@ -386,7 +414,7 @@ void teclasEspeciais(int key, int x, int y)
         break;
     }
     if (formaSelecionada)
-        formaSelecionada->transladar(dx, dy);
+        transladarLimitado(formaSelecionada, dx, dy);
     glutPostRedisplay();
 }
 
@@ -490,7 +518,7 @@ void motion(int x, int y)
     {
         float dx = fx - xArrastaInicio;
         float dy = fy - yArrastaInicio;
-        formaSelecionada->transladar(dx, dy);
+        transladarLimitado(formaSelecionada, dx, dy);
         xArrastaInicio = fx;
         yArrastaInicio = fy;
         glutPostRedisplay();
