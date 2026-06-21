@@ -332,6 +332,7 @@ void keyboard(unsigned char key, int x, int y)
         break;
     case 27: // ESC
         desselecionar();
+        break;
     case 43: // + Escalar para cima
         if (formaSelecionada)
         {
