@@ -6,6 +6,7 @@
 #include "arquivo.h"
 #include <vector>
 #include <algorithm>
+#include <fstream>
 
 #define HEIGHT 900
 #define WIDTH 1200
@@ -32,6 +33,10 @@ std::vector<Ponto2D> velocidades;
 std::string mensagemStatus = "";
 bool exibirStatus = false;
 bool statusSucesso = false;
+
+bool modoTexto = false;
+int acaoTexto = 0; // 1 = salvar, 2 = carregar
+std::string nomeDigitado = "";
 
 Ponto2D mouseAtual = {-1.0f, -1.0f};
 Ponto2D linhaPrimeiroP = {-1.0f, -1.0f};
@@ -122,8 +127,98 @@ void desselecionar()
     formaSelecionada = nullptr;
 }
 
+void mostrarStatus(const std::string &msg, bool sucesso)
+{
+    mensagemStatus = msg;
+    statusSucesso = sucesso;
+    exibirStatus = true;
+    glutTimerFunc(3000, [](int)
+                  { exibirStatus = false; glutPostRedisplay(); }, 0);
+}
+
+void salvarComNome(const std::string &nome)
+{
+    std::string arq = nome + ".json";
+    try
+    {
+        salvarArquivo(formas, arq);
+        mostrarStatus("Salvo em " + arq, true);
+    }
+    catch (const std::exception &e)
+    {
+        mostrarStatus(e.what(), false);
+    }
+}
+
+void carregarComNome(const std::string &nome)
+{
+    std::string arq = nome + ".json";
+
+    // Procura o arquivo no mesmo diretorio
+    std::ifstream teste(arq.c_str());
+    if (!teste.good())
+    {
+        mostrarStatus(arq + " nao existe", false);
+        return;
+    }
+    teste.close();
+
+    try
+    {
+        std::vector<Forma *> carregadas = carregarArquivo(arq);
+        for (auto f : formas)
+            delete f;
+        formas = carregadas;
+        formaSelecionada = nullptr;
+        mostrarStatus("Carregado de " + arq, true);
+    }
+    catch (const std::exception &e)
+    {
+        mostrarStatus(e.what(), false);
+    }
+}
+
 void keyboard(unsigned char key, int x, int y)
 {
+    // Modo de digitacao do nome do arquivo (Salvar/Carregar)
+    if (modoTexto)
+    {
+        if (key == 13) // Enter confirma
+        {
+            if (!nomeDigitado.empty())
+            {
+                if (acaoTexto == 1)
+                    salvarComNome(nomeDigitado);
+                else
+                    carregarComNome(nomeDigitado);
+            }
+            modoTexto = false;
+            acaoTexto = 0;
+            nomeDigitado.clear();
+        }
+        else if (key == 27) // Esc cancela
+        {
+            modoTexto = false;
+            acaoTexto = 0;
+            nomeDigitado.clear();
+        }
+        else if (key == 8 || key == 127) // Backspace
+        {
+            if (!nomeDigitado.empty())
+                nomeDigitado.pop_back();
+        }
+        else
+        {
+            char c = (char)key;
+            bool valido = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                          (c >= '0' && c <= '9') || c == '-' || c == '_';
+            if (valido && nomeDigitado.size() < 40)
+                nomeDigitado.push_back(c);
+        }
+        glutPostRedisplay();
+        return;
+    }
+
     switch (key)
     {
     case 32: // Espaço — toggle animação bounce
@@ -402,6 +497,7 @@ void verificarArrasto(int)
 void mouse(int button, int state, int x, int y)
 {
     if (animando) return;
+    if (modoTexto) return;
     float fx = (float)x;
     float fy = (float)(winHeight - y);
 
@@ -431,20 +527,9 @@ void mouse(int button, int state, int x, int y)
                 float yBot = yTop - ALTURA_ELEMENTO;
                 if (fy >= yBot && fy <= yTop)
                 {
-                    try
-                    {
-                        salvarArquivo(formas, "formas.json");
-                        mensagemStatus = "Salvo em formas.json";
-                        statusSucesso = true;
-                    }
-                    catch (const std::exception &e)
-                    {
-                        mensagemStatus = e.what();
-                        statusSucesso = false;
-                    }
-                    exibirStatus = true;
-                    glutTimerFunc(3000, [](int)
-                                  { exibirStatus = false; glutPostRedisplay(); }, 0);
+                    modoTexto = true;
+                    acaoTexto = 1; // salvar
+                    nomeDigitado.clear();
                     glutPostRedisplay();
                     return;
                 }
@@ -455,23 +540,9 @@ void mouse(int button, int state, int x, int y)
                 float yBot = yTop - ALTURA_ELEMENTO;
                 if (fy >= yBot && fy <= yTop)
                 {
-                    try
-                    {
-                        std::vector<Forma*> carregadas = carregarArquivo("formas.json");
-                        for (auto f : formas) delete f;
-                        formas = carregadas;
-                        formaSelecionada = nullptr;
-                        mensagemStatus = "Carregado de formas.json";
-                        statusSucesso = true;
-                    }
-                    catch (const std::exception &e)
-                    {
-                        mensagemStatus = e.what();
-                        statusSucesso = false;
-                    }
-                    exibirStatus = true;
-                    glutTimerFunc(3000, [](int)
-                                  { exibirStatus = false; glutPostRedisplay(); }, 0);
+                    modoTexto = true;
+                    acaoTexto = 2; // carregar
+                    nomeDigitado.clear();
                     glutPostRedisplay();
                     return;
                 }
@@ -750,6 +821,25 @@ void display()
         glVertex2f(centerx - bw / 2, by + bh);
         glEnd();
         escrever((int)(centerx - bw / 2 + 8), (int)(by + 8), mensagemStatus.c_str());
+    }
+
+    if (modoTexto)
+    {
+        float centerx = (TOOLBAR_WIDTH + winWidth) / 2.0;
+        float bw = 460.0, bh = 50.0;
+        float by = winHeight - 70.0;
+        glColor3f(0.15f, 0.15f, 0.4f);
+        glBegin(GL_QUADS);
+        glVertex2f(centerx - bw / 2, by);
+        glVertex2f(centerx + bw / 2, by);
+        glVertex2f(centerx + bw / 2, by + bh);
+        glVertex2f(centerx - bw / 2, by + bh);
+        glEnd();
+
+        std::string label = (acaoTexto == 1) ? "Salvar como: " : "Carregar: ";
+        std::string linha = label + nomeDigitado + ".json";
+        escrever((int)(centerx - bw / 2 + 10), (int)(by + bh - 18), linha.c_str());
+        escrever((int)(centerx - bw / 2 + 10), (int)(by + 10), "Enter = confirmar   Esc = cancelar");
     }
 
     glutSwapBuffers();
