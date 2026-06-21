@@ -20,6 +20,8 @@
 #define SLOT_CORES (ALTURA_ELEMENTO + 10) // Margem 10 pixels
 #define TEXTO_PAD_H 7
 #define TEXTO_PAD_V 12
+#define FECHAR_TOL 12 // distancia (px) para fechar poligono clicando no 1o vertice
+#define BARRA_TOPO 30 // altura da barra de status superior
 
 int winWidth = WIDTH;
 int winHeight = HEIGHT;
@@ -52,6 +54,8 @@ Forma *formaSelecionada = nullptr;
 float corAtual[3] = {1.0f, 1.0f, 1.0f};
 int corSelecionada = 6;
 
+bool mostrarAjuda = false;
+
 const float CORES[7][3] = {
     {0.0f, 1.0f, 1.0f},
     {1.0f, 0.0f, 1.0f},
@@ -66,6 +70,42 @@ int init()
 {
     glClearColor(0.0, 0.0, 0.0, 1.0);
     return 0;
+}
+
+// Distancia ao quadrado entre dois pontos (evita sqrt)
+float distancia2(Ponto2D a, Ponto2D b)
+{
+    float dx = a.x - b.x;
+    float dy = a.y - b.y;
+    return dx * dx + dy * dy;
+}
+
+// Translada a forma limitando o deslocamento para que ela inteira (bounding box)
+// permaneca dentro da area de desenho (fora da toolbar e da barra superior)
+void transladarLimitado(Forma *forma, float dx, float dy)
+{
+    auto pontos = forma->getPontos();
+    if (pontos.empty()) return;
+
+    float minX = pontos[0].x, maxX = pontos[0].x;
+    float minY = pontos[0].y, maxY = pontos[0].y;
+    for (auto &p : pontos)
+    {
+        if (p.x < minX) minX = p.x;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.y > maxY) maxY = p.y;
+    }
+
+    float xMin = TOOLBAR_WIDTH, xMax = winWidth;
+    float yMin = 0, yMax = winHeight - BARRA_TOPO;
+
+    if (minX + dx < xMin) dx = xMin - minX;
+    if (maxX + dx > xMax) dx = xMax - maxX;
+    if (minY + dy < yMin) dy = yMin - minY;
+    if (maxY + dy > yMax) dy = yMax - maxY;
+
+    forma->transladar(dx, dy);
 }
 
 void reshape(int w, int h)
@@ -221,6 +261,9 @@ void keyboard(unsigned char key, int x, int y)
 
     switch (key)
     {
+    case '?': // abre/fecha o painel de atalhos
+        mostrarAjuda = !mostrarAjuda;
+        break;
     case 32: // Espaço — toggle animação bounce
         animando = !animando;
         if (animando)
@@ -303,22 +346,22 @@ void keyboard(unsigned char key, int x, int y)
     case 'w':
     case 'W':
         if (formaSelecionada)
-            formaSelecionada->transladar(0, 1.0f * SPEED);
+            transladarLimitado(formaSelecionada, 0, 1.0f * SPEED);
         break;
     case 'a':
     case 'A':
         if (formaSelecionada)
-            formaSelecionada->transladar(-1.0f * SPEED, 0);
+            transladarLimitado(formaSelecionada, -1.0f * SPEED, 0);
         break;
     case 's':
     case 'S':
         if (formaSelecionada)
-            formaSelecionada->transladar(0, -1.0f * SPEED);
+            transladarLimitado(formaSelecionada, 0, -1.0f * SPEED);
         break;
     case 'd':
     case 'D':
         if (formaSelecionada)
-            formaSelecionada->transladar(1.0f * SPEED, 0);
+            transladarLimitado(formaSelecionada, 1.0f * SPEED, 0);
         break;
     case 127: // DELETE
         if (formaSelecionada)
@@ -332,6 +375,7 @@ void keyboard(unsigned char key, int x, int y)
         break;
     case 27: // ESC
         desselecionar();
+        break;
     case 43: // + Escalar para cima
         if (formaSelecionada)
         {
@@ -370,7 +414,7 @@ void teclasEspeciais(int key, int x, int y)
         break;
     }
     if (formaSelecionada)
-        formaSelecionada->transladar(dx, dy);
+        transladarLimitado(formaSelecionada, dx, dy);
     glutPostRedisplay();
 }
 
@@ -474,7 +518,7 @@ void motion(int x, int y)
     {
         float dx = fx - xArrastaInicio;
         float dy = fy - yArrastaInicio;
-        formaSelecionada->transladar(dx, dy);
+        transladarLimitado(formaSelecionada, dx, dy);
         xArrastaInicio = fx;
         yArrastaInicio = fy;
         glutPostRedisplay();
@@ -566,6 +610,9 @@ void mouse(int button, int state, int x, int y)
         return;
     }
 
+    // Ignora cliques na barra de status superior
+    if (fy > winHeight - BARRA_TOPO)
+        return;
 
     if (button == GLUT_LEFT_BUTTON)
     {
@@ -596,7 +643,12 @@ void mouse(int button, int state, int x, int y)
                     break;
                 case 3:
                     addLinha(0, 0, false);
-                    addPoligono(fx, fy, true);
+                    // Se ja ha >=3 vertices e o clique e perto do 1o, fecha o poligono
+                    if (!poligonoPrimeiroPonto && verticesPoligonoTemp.size() >= 3 &&
+                        distancia2(verticesPoligonoTemp[0], {fx, fy}) <= FECHAR_TOL * FECHAR_TOL)
+                        addPoligono(0, 0, false);
+                    else
+                        addPoligono(fx, fy, true);
                     break;
                 case 4:
                     for (auto &forma : formas)
@@ -632,7 +684,11 @@ void mouse(int button, int state, int x, int y)
                     break;
                 case 3:
                     addLinha(0, 0, false);
-                    addPoligono(xArrastaInicio, yArrastaInicio, true);
+                    if (!poligonoPrimeiroPonto && verticesPoligonoTemp.size() >= 3 &&
+                        distancia2(verticesPoligonoTemp[0], {xArrastaInicio, yArrastaInicio}) <= FECHAR_TOL * FECHAR_TOL)
+                        addPoligono(0, 0, false);
+                    else
+                        addPoligono(xArrastaInicio, yArrastaInicio, true);
                     break;
                 case 4:
                     for (auto &forma : formas)
@@ -758,6 +814,129 @@ void desenharToolbar()
     }
 }
 
+void desenharBarraSuperior()
+{
+    float x0 = TOOLBAR_WIDTH;
+    float y0 = winHeight - BARRA_TOPO;
+
+    // Fundo da barra
+    glColor3f(0.13f, 0.13f, 0.13f);
+    glBegin(GL_QUADS);
+    glVertex2f(x0, y0);
+    glVertex2f(winWidth, y0);
+    glVertex2f(winWidth, winHeight);
+    glVertex2f(x0, winHeight);
+    glEnd();
+
+    // Linha separadora inferior
+    glColor3f(0.4f, 0.4f, 0.4f);
+    glLineWidth(1.0f);
+    glBegin(GL_LINES);
+    glVertex2f(x0, y0);
+    glVertex2f(winWidth, y0);
+    glEnd();
+
+    int yTexto = (int)(y0 + 10);
+
+    // Ferramenta atual
+    const char *nomes[] = {"Ponto", "Linha", "Poligono", "Selecionar"};
+    std::string ferramenta = std::string("Ferramenta: ") + nomes[choice - 1];
+    escrever((int)x0 + 12, yTexto, ferramenta.c_str());
+
+    // Indicador de cor atual
+    float corX = x0 + 220;
+    escrever((int)corX, yTexto, "Cor:");
+    float sx = corX + 35, sw = 22, sh = 16, sy = y0 + 7;
+    glColor3fv(corAtual);
+    glBegin(GL_QUADS);
+    glVertex2f(sx, sy);
+    glVertex2f(sx + sw, sy);
+    glVertex2f(sx + sw, sy + sh);
+    glVertex2f(sx, sy + sh);
+    glEnd();
+    glColor3f(0.6f, 0.6f, 0.6f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(sx, sy);
+    glVertex2f(sx + sw, sy);
+    glVertex2f(sx + sw, sy + sh);
+    glVertex2f(sx, sy + sh);
+    glEnd();
+
+    // Dica contextual conforme a ferramenta
+    const char *dica;
+    switch (choice)
+    {
+    case 1: dica = "Clique para criar um ponto"; break;
+    case 2: dica = "Clique em 2 pontos para criar uma linha"; break;
+    case 3: dica = "Clique p/ adicionar vertices | dir. ou 1o vertice = fechar"; break;
+    default: dica = "Clique p/ selecionar | arraste p/ mover | Del exclui"; break;
+    }
+    escrever((int)(sx + sw + 25), yTexto, dica);
+
+    // Atalho de ajuda no canto direito
+    escrever(winWidth - 95, yTexto, "?  =  ajuda");
+}
+
+void desenharPainelAjuda()
+{
+    const char *linhas[] = {
+        "ATALHOS DO TECLADO",
+        "",
+        "1 / 2 / 3 / 4    Ponto / Linha / Poligono / Selecionar",
+        "Q / E            Rotacionar",
+        "+ / -            Escalar",
+        "H / V            Refletir horizontal / vertical",
+        "I / J / K / L    Cisalhar",
+        "W A S D / setas  Mover forma selecionada",
+        "Delete / z       Excluir forma selecionada",
+        "Espaco           Animacao",
+        "Clique direito   Fechar poligono / desmarcar",
+        "ESC              Desmarcar selecao",
+        "",
+        "?                Fecha esta ajuda",
+    };
+    int n = sizeof(linhas) / sizeof(linhas[0]);
+
+    float lineH = 22, pad = 22, bw = 540;
+    float bh = n * lineH + 2 * pad;
+    float cx = (TOOLBAR_WIDTH + winWidth) / 2.0f;
+    float cy = winHeight / 2.0f;
+    float x0 = cx - bw / 2, y0 = cy - bh / 2;
+
+    // Escurece o fundo para destacar o painel
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(0.0f, 0.0f, 0.0f, 0.55f);
+    glBegin(GL_QUADS);
+    glVertex2f(TOOLBAR_WIDTH, 0);
+    glVertex2f(winWidth, 0);
+    glVertex2f(winWidth, winHeight);
+    glVertex2f(TOOLBAR_WIDTH, winHeight);
+    glEnd();
+    glDisable(GL_BLEND);
+
+    // Caixa do painel
+    glColor3f(0.1f, 0.1f, 0.16f);
+    glBegin(GL_QUADS);
+    glVertex2f(x0, y0);
+    glVertex2f(x0 + bw, y0);
+    glVertex2f(x0 + bw, y0 + bh);
+    glVertex2f(x0, y0 + bh);
+    glEnd();
+    glColor3f(0.5f, 0.5f, 0.75f);
+    glLineWidth(2.0f);
+    glBegin(GL_LINE_LOOP);
+    glVertex2f(x0, y0);
+    glVertex2f(x0 + bw, y0);
+    glVertex2f(x0 + bw, y0 + bh);
+    glVertex2f(x0, y0 + bh);
+    glEnd();
+
+    // Linhas de texto (de cima para baixo)
+    for (int i = 0; i < n; i++)
+        escrever((int)(x0 + pad), (int)(y0 + bh - pad - 14 - i * lineH), linhas[i]);
+}
+
 void display()
 {
     glClear(GL_COLOR_BUFFER_BIT);
@@ -777,6 +956,9 @@ void display()
             forma->draw();
         }
     }
+
+    // Barra de status superior (ferramenta/cor/dica) por cima das formas
+    desenharBarraSuperior();
 
     // preview rubber-band
     if (mouseAtual.x != -1.0f)
@@ -804,6 +986,26 @@ void display()
         }
 
         glDisable(GL_LINE_STIPPLE);
+    }
+
+    // Marcador no 1o vertice do poligono (clique aqui para fechar)
+    if (choice == 3 && verticesPoligonoTemp.size() >= 3)
+    {
+        Ponto2D pv = verticesPoligonoTemp[0];
+        bool perto = mouseAtual.x != -1.0f &&
+                     distancia2(pv, mouseAtual) <= FECHAR_TOL * FECHAR_TOL;
+        float r = perto ? 8.0f : 5.0f;
+        if (perto)
+            glColor3f(0.2f, 1.0f, 0.4f); // verde: pronto para fechar
+        else
+            glColor3f(1.0f, 0.85f, 0.2f); // amarelo: ponto de fechamento
+        glLineWidth(2.0f);
+        glBegin(GL_LINE_LOOP);
+        glVertex2f(pv.x - r, pv.y - r);
+        glVertex2f(pv.x + r, pv.y - r);
+        glVertex2f(pv.x + r, pv.y + r);
+        glVertex2f(pv.x - r, pv.y + r);
+        glEnd();
     }
 
     if (exibirStatus)
@@ -841,6 +1043,9 @@ void display()
         escrever((int)(centerx - bw / 2 + 10), (int)(by + bh - 18), linha.c_str());
         escrever((int)(centerx - bw / 2 + 10), (int)(by + 10), "Enter = confirmar   Esc = cancelar");
     }
+
+    if (mostrarAjuda)
+        desenharPainelAjuda();
 
     glutSwapBuffers();
 }

@@ -3,6 +3,7 @@
 #else
 #include <GL/freeglut.h>
 #endif
+#include <cstring>
 
 void escrever(int x, int y, const char *string){
     glColor3f(1.0, 1.0, 1.0);
