@@ -3,14 +3,21 @@
 
 #ifdef __APPLE__
 #include <GLUT/glut.h>
+#include <OpenGL/glu.h>
 #else
 #include <GL/freeglut.h>
+#include <GL/glu.h>
 #endif
 
 #include <math.h>
 #include <stdio.h>
 #include <sstream>
 #include <algorithm>
+
+// CALLBACK e uma macro do Windows; em outras plataformas nao existe.
+#ifndef CALLBACK
+#define CALLBACK
+#endif
 
 #define COR_SELECAO 0.5, 0.5, 0.5
 #define PI 3.14159265359
@@ -406,6 +413,26 @@ void Poligono::tornarConvexo() {
     vertices = fechoConvexoAndrew(vertices);
 }
 
+static void CALLBACK poligonoTessBegin(GLenum tipo) {
+    glBegin(tipo);
+}
+
+static void CALLBACK poligonoTessVertex(void* vertexData) {
+    const GLdouble* v = static_cast<const GLdouble*>(vertexData);
+    glVertex2d(v[0], v[1]);
+}
+
+static void CALLBACK poligonoTessEnd() {
+    glEnd();
+}
+
+// Quando arestas se autointerceptam; aloca um novo vértice na interseção.
+static void CALLBACK poligonoTessCombine(GLdouble coords[3], void* [4], GLfloat [4], void** outData, void* polygonData) {
+    GLdouble* v = new GLdouble[3]{coords[0], coords[1], coords[2]};
+    static_cast<std::vector<GLdouble*>*>(polygonData)->push_back(v);
+    *outData = v;
+}
+
 void Poligono::draw() const {
     if (vertices.size() < 3) return; // Um polígono precisa de pelo menos 3 vértices
 
@@ -414,11 +441,27 @@ void Poligono::draw() const {
 
     glLineWidth(lineWidth);
 
-    glBegin(GL_POLYGON);
-        for (const auto& v : vertices) {
-            glVertex2f(v.x, v.y);
-        }
-    glEnd();
+    GLUtesselator* tess = gluNewTess();
+    gluTessCallback(tess, GLU_TESS_BEGIN, (void (CALLBACK*)()) poligonoTessBegin);
+    gluTessCallback(tess, GLU_TESS_VERTEX, (void (CALLBACK*)()) poligonoTessVertex);
+    gluTessCallback(tess, GLU_TESS_END, (void (CALLBACK*)()) poligonoTessEnd);
+    gluTessCallback(tess, GLU_TESS_COMBINE_DATA, (void (CALLBACK*)()) poligonoTessCombine);
+
+    std::vector<GLdouble*> coordsAlocados;
+
+    gluTessBeginPolygon(tess, &coordsAlocados);
+    gluTessBeginContour(tess);
+    for (const auto& v : vertices) {
+        GLdouble* c = new GLdouble[3]{v.x, v.y, 0.0};
+        coordsAlocados.push_back(c);
+        gluTessVertex(tess, c, c);
+    }
+    gluTessEndContour(tess);
+    gluTessEndPolygon(tess);
+
+    gluDeleteTess(tess);
+
+    for (auto* c : coordsAlocados) delete[] c;
 }
 
 void Poligono::setVertices(std::vector<Ponto2D> pontos){
