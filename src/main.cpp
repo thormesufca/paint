@@ -313,6 +313,11 @@ void keyboard(unsigned char key, int x, int y)
         if (formaSelecionada)
             formaSelecionada->rotacionar(-15.0f);
         break;
+    case 'C':
+    case 'c':
+        if (Poligono *poli = dynamic_cast<Poligono *>(formaSelecionada))
+            poli->tornarConvexo();
+        break;
     case 'z':
         if (formaSelecionada)
         {
@@ -887,6 +892,7 @@ void desenharPainelAjuda()
         "+ / -            Escalar",
         "H / V            Refletir horizontal / vertical",
         "I / J / K / L    Cisalhar",
+        "C                Fecho convexo (poligono selecionado)",
         "W A S D / setas  Mover forma selecionada",
         "Delete / z       Excluir forma selecionada",
         "Espaco           Animacao",

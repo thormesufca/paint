@@ -97,6 +97,9 @@ public:
     int getNumVertices() const { return vertices.size(); }
     Ponto2D getCentroide() const;
 
+    // Transforma o polígono no seu fecho convexo (Andrew's monotone chain).
+    void tornarConvexo();
+
     void draw() const override;
     std::vector<Ponto2D> getPontos() const override { return vertices; }
     void setVertices(std::vector<Ponto2D>);
@@ -106,5 +109,9 @@ public:
     std::string serializar() override;
     static Poligono* desserializar(const std::string& json);
 };
+
+// Calcula o fecho convexo de um conjunto de pontos pelo algoritmo de Andrew
+// (monotone chain). Retorna os vértices do fecho em ordem anti-horária.
+std::vector<Ponto2D> fechoConvexoAndrew(std::vector<Ponto2D> pontos);
 
 #endif

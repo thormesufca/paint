@@ -10,6 +10,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <sstream>
+#include <algorithm>
 
 #define COR_SELECAO 0.5, 0.5, 0.5
 #define PI 3.14159265359
@@ -363,6 +364,46 @@ std::string Linha::serializar(){
 
 void Poligono::adicionarVertice(float x, float y) {
     vertices.push_back({x, y});
+}
+
+// Produto vetorial (OA x OB). > 0 => curva à esquerda (anti-horária),
+// < 0 => curva à direita, == 0 => pontos colineares.
+static double produtoVetorial(const Ponto2D& O, const Ponto2D& A, const Ponto2D& B) {
+    return (double)(A.x - O.x) * (B.y - O.y) - (double)(A.y - O.y) * (B.x - O.x);
+}
+
+std::vector<Ponto2D> fechoConvexoAndrew(std::vector<Ponto2D> pts) {
+    int n = pts.size();
+    if (n < 3) return pts; // com menos de 3 pontos o fecho é o próprio conjunto
+
+    // 1) Ordena os pontos por x e, em empate, por y.
+    std::sort(pts.begin(), pts.end(), [](const Ponto2D& a, const Ponto2D& b) {
+        return a.x < b.x || (a.x == b.x && a.y < b.y);
+    });
+
+    std::vector<Ponto2D> hull(2 * n);
+    int k = 0; // quantidade de pontos atualmente no fecho
+
+    // 2) Cadeia inferior: da esquerda para a direita.
+    for (int i = 0; i < n; i++) {
+        while (k >= 2 && produtoVetorial(hull[k - 2], hull[k - 1], pts[i]) <= 0)
+            k--;
+        hull[k++] = pts[i];
+    }
+
+    // 3) Cadeia superior: da direita para a esquerda.
+    for (int i = n - 2, t = k + 1; i >= 0; i--) {
+        while (k >= t && produtoVetorial(hull[k - 2], hull[k - 1], pts[i]) <= 0)
+            k--;
+        hull[k++] = pts[i];
+    }
+
+    hull.resize(k - 1); // o último ponto repete o primeiro, então removemos
+    return hull;
+}
+
+void Poligono::tornarConvexo() {
+    vertices = fechoConvexoAndrew(vertices);
 }
 
 void Poligono::draw() const {
